@@ -1,0 +1,221 @@
+#+title: AniTA
+#+author: Duncan Britt
+#+options: toc:nil num:nil author:nil date:nil
+#+latex_class_options: [letterpaper,12pt,twoside]
+# To set the margins:
+#+latex_header: \usepackage[margin=1in]{geometry}
+# To enable \FloatBarrier:
+#+latex_header: \usepackage{placeins}
+# To decrease/set the vertical space between the top of the page and the title:
+#+latex_header: \usepackage{titling}
+#+latex_header: \setlength{\droptitle}{-3em}
+
+# Edward Tuftian (Bembo-like) font:
+#+latex_header: \usepackage{ETbb}
+# To set the vertical line spacing
+# #+latex_header: \usepackage{setspace}
+# #+latex_header: \setstretch{1.00}
+
+# To enable fancy named colors, as in https://steeven9.github.io/USI-LaTeX/html/packages_hyperref_babel_xcolor3.html
+#+latex_header: \usepackage[usenames,dvipsnames]{xcolor}
+# To modify link styles via the hyperref package options:
+#+latex_header: \hypersetup{linktoc = all, colorlinks = true, linkcolor = blue, citecolor = blue}
+
+* Use Cases
+
+#+begin_src plantuml :file use-case.png
+  @startuml
+  left to right direction
+
+  actor Professor
+  actor Student
+
+  rectangle "aniTA System"
+    (Register) <-- Professor
+    (Register) <-- Student
+
+    Professor --> (Log In)
+    Professor --> (Post Assignments)
+    Professor --> (Review Auto-Graded Assignments)
+    Professor --> (Create Course)
+    Professor --> (Publish Assignment)
+
+    Student --> (Log In)
+    Student --> (Submit Assignment)
+    Student --> (View Grades and Feedback)
+    Student --> (Request Regrade)
+  }
+
+  @enduml
+#+end_src
+
+#+RESULTS:
+[[file:use-case.png]]
+
+* Activities
+
+#+begin_src plantuml :file activity.png
+    @startuml
+    start
+    :Professor logs in;
+    ' could even schedule assignment publication
+    :Professor creates and publishes assignment; 
+    :Students submits assignment;
+    :aniTA generates draft grades and feedback;
+    :Professor reviews, revises, and publishes grades and feedback;
+    :Student views grades and feedback;
+    if (Regrade requested?) then (Yes)
+      :Professor reviews submission again;
+      :Professor updates grade and feedback;
+      :Grades and feedback are republished;
+    else (No)
+      stop
+    endif
+    stop
+    @enduml
+#+end_src
+
+#+RESULTS:
+[[file:activity.png]]
+
+* Components
+
+#+begin_src plantuml :file component.png
+  @startuml
+  package "aniTA System" {
+    component "Frontend" as FE
+    component "Backend" as BE
+    component "LLM Autograder" as LLM
+    component "Database" as DB
+  }
+
+  FE --> BE : HTTP Requests
+  BE --> DB : CRUD Operations
+  BE --> LLM : API Calls
+  LLM --> BE : Grading Results
+  BE --> FE : Responses
+
+  note right of FE
+    Pages:
+    - Home/About
+    - Login/Register
+    - Student Dashboard
+    - Professor Dashboard
+  end note
+
+  note right of BE
+    Handles:
+    - User Authentication
+    - Assignment Management
+    - Grading Workflow
+  end note
+
+  note right of LLM
+    Provides:
+    - Auto-grading
+    - Feedback Generation
+  end note
+
+  note right of DB
+    Stores:
+    - User Data
+    - Assignments
+    - Grades/Feedback
+  end note
+  @enduml
+#+end_src
+
+#+RESULTS:
+[[file:component.png]]
+
+* Database Schema
+
+#+begin_src plantuml :file schema.png
+  @startuml
+  left to right direction
+
+  entity "Student" as Student {
+          + student_id (PK)
+          name
+          email
+          password_hash
+  }
+
+  entity "Professor" as Professor {
+          + professor_id (PK)
+          name
+          email
+          password_hash
+  }
+
+  entity "Course" as Course {
+          + course_code (PK)
+          name
+          start_date
+          end_date
+  }
+
+  entity "Assignment" as Assignment {
+          + assignment_id (PK)
+          name
+          rubric
+          due_date
+          course_id (FK)
+  }
+
+  entity "Submission" as Submission {
+          + timestamp (PK)
+          + student_id (FK) (PK)
+          + assignment_id (FK) (PK)
+          file_path
+          grade
+          feedback
+          regrade_requested
+  }
+
+  Student }o--o{ Course : "enrolls in"
+  Professor ||--o{ Course : "teaches"
+  Course ||--o{ Assignment : "contains"
+  Student ||--o{ Submission : "submits"
+  Assignment ||--o{ Submission : "receives"
+  @enduml
+#+end_src
+
+#+RESULTS:
+[[file:schema.png]]
+
+* Notes                                                            :noexport:
+Users
+- Professor
+  - Log in
+  - Post Assignments
+    - (name, rubric, due date)
+  - Review auto-graded assignments
+    - list of assignments
+    - for each assignment
+      - side by side aniTA grade, feedback, student submission
+- Student
+  - log in
+  - submit (or resubmit) assignments
+  - view grades and feedback
+  - regrade requests 
+
+Discord/vscode organization/navigation
+
+- Pages
+  - home/about/welcome <- for people not logged in
+  - Register form
+    Name, email, university, student/professor, password
+  - Login
+    - Email, password
+  - Student dashboard
+  - Student sees “directory” structure on the left of classes/assignments
+  - Add Courses button
+    - Popup asking for course id code
+  - Upload submission files modal
+  - Professor dashboard
+    - Directory of courses/assignments/students (left pane?)
+    - Create Assignment link
+    - Publish assignment link (can save drafts)
+    - Create Courses button
+      Form containing name of course, course abbreviation, start/end dates?, generate course id code upon submission
