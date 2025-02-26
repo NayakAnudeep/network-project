@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'main.css' %}">
+{% block title %}
+Login 
+{% endblock %}
+{% block content %}
+<div class="container">
+<div class="input-group justify-content-center">
+         <form method="post" style=" margin:20px; padding: 30px; border-radius: 10px; box-shadow: 0px  0px 10px 0px black; position: absolute; top:15vh; width: 30%;">
+            {% csrf_token %}
+            <label for="UserName">User Name</label>
+            <input type="text" name="UserName" id="UserName" class="form-control" placeholder="Username"  autocomplete="off">
+            <label for="Password" >Password</label>
+            <input type="password" name="Password" id="Password"class="form-control" placeholder="Password"  autocomplete="off">
+             <button type="submit" class="btn btn-primary form-control" style="margin-top:10px;">Login</button>
+             <label style="display:block; box-sizing: border-box; margin: 2px 0 2px 0; color:red;"> {{ msg }} </label>
+             <label for="Forgot" style="margin-top: 5px;">Forgot Password?</label>
+             <a href="{% url 'rpassword' %}" style="text-decoration: none;">Forgot password</a>
+             <label  style="margin: 5px 0 0 0;">Use Password Sent On Email</label>
+         </form>
+         <div style=" padding: 20px; border-radius: 10px; box-shadow: 0px  0px 10px 0px black; position: absolute; top:65vh; width:30%;">
+           <label for="Sign Up">Don't have an account? </label>
+             <a href="{% url 'usignup' %}" style="text-decoration: none;">Sign up</a>
+        </div>
+</div>
+</div>
+{% endblock %}

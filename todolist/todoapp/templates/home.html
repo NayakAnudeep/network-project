@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}
+Home
+{% endblock %}
+{% block content %}
+
+<div class="d-felx flex-row justify-content-start">
+ <div class="row row-cols-2">
+      <div class="col">
+      
+               <form method="post" style=" margin:20px; padding: 30px; border-radius: 10px; box-shadow: 0px  0px 10px 0px black; position: absolute; top:15vh; width: 30%;" action="{% url 'create' %}">
+          {% csrf_token %}
+                <p class="h3">ADD Task</p>
+            <input type="text" name="Task" class="form-control" placeholder="ADD Task"  autocomplete="off" required>
+            <button type="submit" class="btn btn-primary form-control" style="margin-top:10px;">Save
+            </button>
+            
+            </a>
+            <label >{{ msg }}</label>
+        </form>
+        <form action="{% url 'viewtask' %}" method="post"></form>
+                      <button type="submit" class="btn btn-primary" style=" margin:25px;    position: absolute; top:50vh;" 
+                ><a href="{% url 'viewtask' %}" style="text-decoration: none; color:white">viewtask</a>
+            </button>
+
+  </div>
+  <div class="col">
+      <table class="table">
+          {% if data %}
+          <thead>
+              <tr>
+                  <th scope="col">Task</th>
+                  <th class="col">Date</th>
+                  <th class="col">  </th>
+              </tr>
+          </thead>
+          <tbody>
+            <tr>
+                {% for d in data %}
+                <td >{{ d.task }}</td>
+                    <td >{{ d.task_date }}</td>
+					<td ><button class="btn btn-danger" type="button" ><a href="{% url 'deletetask' t=d.task da=d.task_date %}" onclick="return confirm('Do u really want to delete')" style="text-decoration: none; color: white;">Delete</a></button></td>
+					
+            </tr>
+            {% endfor %}
+          </tbody>
+          {% endif %}
+      </table>
+     </div>
+</div>
+<div>
+
+
+
+{% endblock %}

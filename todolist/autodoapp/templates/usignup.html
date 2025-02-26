@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'main.css' %}">
+{% block title %}
+Signup  
+{% endblock %}
+{% block content %}
+<div class="container">
+<div class="input-group justify-content-center">
+         <form method="post" style=" margin:20px; padding: 30px; border-radius: 10px; box-shadow: 0px  0px 10px 0px black; position: absolute; top:20vh; width: 30%;">
+            {% csrf_token %}
+            <label for="UserName">User Name</label>
+            <input type="text" name="UserName" id="UserName" class="form-control" placeholder="Username"  autocomplete="off" required>
+             <label for="Email">Email</label>
+            <input type="email" name="Email" id="Email" class="form-control" placeholder="Email"  autocomplete="off" required>
+             <button type="submit" class="btn btn-primary form-control" style="margin-top:10px;">Sign Up</button>
+             <label style="display:block; box-sizing: border-box; margin: 2px 0 2px 0; color:red;"> {{ msg }} </label>
+             <label for="Login" style="margin-top: 10px;">Already have an account?</label>
+             <a href="{% url 'ulogin' %}" style="text-decoration: none;">Login</a>
+             <label  style="margin: 5px 0 0 0;">Password will be sent on Email</label>
+         </form>
+
+</div>
+</div>
+{% endblock %}
