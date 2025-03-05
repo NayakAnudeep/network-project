@@ -35,7 +35,7 @@ body {
     height: 60px;
     background-color: #ccc;
     border-radius: 70%;
-    border:1px solid black;    
+    border:1px solid black;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -157,6 +157,7 @@ body {
   box-shadow: 0 0 10px rgba(0,0,0,0.3);
   z-index: 1000;
   border-radius: 20px;
+  min-width: 350px;
 }
 
 .form-group {
@@ -214,11 +215,25 @@ button.cancel {
   background: #f0f0f0;
 }
 
-input[type="email"] {
+input {
   font-size: 20px;
 }
 
-input[type="password"] {
-  font-size: 20px;
+.form-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
+.form-select label {
+  flex-shrink: 0;
+}
+
+.form-select select {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 20px;
+  color: #717171;
+}
