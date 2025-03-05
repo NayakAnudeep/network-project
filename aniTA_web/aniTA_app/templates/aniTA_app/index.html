@@ -1,15 +1,43 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Index Page Foo</title>
-        {% load static %}
-        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/styles.css' %}" />
-        <script src="{% static 'aniTA_app/js/scripts.js' %}"></script>
-    </head>
-    <body>
-        <h1>Index Page!</h1>
-        <p>My first paragraph.</p>        
-    </body>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AniTA</title>
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/styles.css' %}" />
+<script src="{% static 'aniTA_app/js/scripts.js' %}"></script>
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <div class="logo">AniTA</div>
+            <div class="nav-links">
+                <a href="#about">About</a>
+                <a href="#demo">Demo</a>
+                <a href="#faq">FAQ</a>
+            </div>
+            <div class="auth-buttons">
+                <a href="#login" class="btn">Log In</a>
+                <a href="#signup" class="btn btn-primary">Sign Up</a>
+            </div>
+        </nav>
+
+        <main class="hero">
+            <div class="hero-content">
+                <h1>AI Powered Feedback</h1>
+                <p>Automate grading efficiently with AniTA. Students can get detailed feedback on assignments readily and educators can save time grading.</p>
+                <div class="cta-buttons">
+                    <a href="#signup" class="btn btn-primary">Sign Up Now</a>
+                    <a href="#demo" class="btn btn-secondary">View Demo</a>
+                </div>
+            </div>
+            <div class="hero-images">
+                <div class="image-container">
+                    <img src="../../static/aniTA_app/img/AniTA.png" alt="AniTA AI Feedback Interface">
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
 </html>
