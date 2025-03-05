@@ -6,7 +6,7 @@
     <title>AniTA</title>
     {% load static %}
     <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/styles.css' %}" />
-<script src="{% static 'aniTA_app/js/scripts.js' %}"></script>
+<script src="{% static 'aniTA_app/js/index.js' %}" defer></script>
 </head>
 <body>
     <div class="container">
@@ -18,17 +18,83 @@
                 <a href="#faq">FAQ</a>
             </div>
             <div class="auth-buttons">
-                <a href="#login" class="btn">Log In</a>
-                <a href="#signup" class="btn btn-primary">Sign Up</a>
+                <a id="login-btn" href="#" class="btn">Log In</button>
+                <a id="signup-btn" href="#" class="btn btn-primary">Sign Up</a>
             </div>
         </nav>
+
+        <div id="modal-login" class="modal">
+            <button class="close-btn">&times;</button>
+            <h2>Log in to your account</h2>
+            <p style="margin-bottom: 10px; line-height: 2.5; color: #7f7f7f">Welcome back! Please enter your details.</p>
+
+            <form method="post" action="{% url 'login' %}">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label style="color: #505050;">Email*</label>
+                    <input type="email" placeholder="Enter your email" required>
+                </div>
+
+                <div class="form-group">
+                    <label style="color: #505050;">Password*</label>
+                    <input type="password" required>
+                </div>
+
+                <div class="form-options">
+                    <label><input type="checkbox"> Remember Me</label>
+                    <a href="#">Forgot password</a>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Confirm</button>
+                <button type="button" class="btn cancel">Cancel</button>
+            </form>
+        </div>
+
+        <div id="modal-signup" class="modal">
+            <button class="close-btn">&times;</button>
+            <h2>Sign up</h2>
+            <p style="margin-bottom: 10px; line-height: 2.5; color: #7f7f7f">Enter your school email.</p>
+
+            <form method="post" action="{% url 'signup' %}">
+                {% csrf_token %}
+                <div class="form-group form-select">
+                    <label style="color: #505050;">I'm a*</label>
+                    <select name="user_type" required>
+                        <option value="" disabled selected>Select your role</option>
+                        <option value="student">Student</option>
+                        <option value="instructor">Instructor</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="color: #505050;">Name*</label>
+                    <input type="text" placeholder="Enter your Name" required>
+                </div>
+                <div class="form-group">
+                    <label style="color: #505050;">Email*</label>
+                    <input type="email" placeholder="Enter your email" required>
+                </div>
+
+                <div class="form-group">
+                    <label style="color: #505050;">Password*</label>
+                    <input type="password" required>
+                </div>
+
+                <div class="form-options">
+                    <label><input type="checkbox"> Remember Me</label>
+                    <a href="#">Forgot password</a>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Confirm</button>
+                <button type="button" class="btn cancel">Cancel</button>
+            </form>
+        </div>
 
         <main class="hero">
             <div class="hero-content">
                 <h1>AI Powered Feedback</h1>
                 <p>Automate grading efficiently with AniTA. Students can get detailed feedback on assignments readily and educators can save time grading.</p>
                 <div class="cta-buttons">
-                    <a href="#signup" class="btn btn-primary">Sign Up Now</a>
+                    <a id="signup-now-btn" href="#" class="btn btn-primary">Sign Up Now</a>
                     <a href="#demo" class="btn btn-secondary">View Demo</a>
                 </div>
             </div>
