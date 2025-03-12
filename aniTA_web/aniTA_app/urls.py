@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     path("", views.index, name="index"),
     path("login/", views.login, name="login"),
-    path("signup/", views.signup, name="signup")
+    path("signup/", views.signup, name="signup"),
+    path("dashboard/", views.dashboard, name="student_dashboard")
     # path("<int:arg_foo>/dashboard/", views.dashboard, name="dashboard")
 ]
