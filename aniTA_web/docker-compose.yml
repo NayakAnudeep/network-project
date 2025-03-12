@@ -1,3 +1,4 @@
+
 version: '3.8'
 
 services:
@@ -8,3 +9,25 @@ services:
       - .:/app
     ports:
       - "8000:8000"
+    depends_on:
+      - arangodb  # Ensure Django starts after ArangoDB
+    environment:
+      ARANGO_DB_HOST: "http://arangodb"  # Use service name (NOT "anita_web-arangodb-1")
+      ARANGO_DB_PORT: "8529"
+      ARANGO_DB_USER: "root"
+      ARANGO_DB_PASSWORD: "aitaArango"
+      ARANGO_DB_NAME: "aita_db"
+
+  arangodb:
+    image: arangodb:3.11
+    restart: always
+    ports:
+      - "8529:8529"
+    environment:
+      ARANGO_ROOT_PASSWORD: "aitaArango"
+    volumes:
+      - arangodb_data:/var/lib/arangodb3
+
+volumes:
+  arangodb_data:
+
