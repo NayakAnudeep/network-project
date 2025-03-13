@@ -1,11 +1,9 @@
-from django.urls import path
+from django.urls import path, include
 
 from . import views
 
 urlpatterns = [
     path("", views.index, name="index"),
-    path("login/", views.login, name="login"),
-    path("signup/", views.signup, name="signup"),
+    path("users/", include('users.urls')),
     path("dashboard/", views.dashboard, name="student_dashboard")
-    # path("<int:arg_foo>/dashboard/", views.dashboard, name="dashboard")
 ]

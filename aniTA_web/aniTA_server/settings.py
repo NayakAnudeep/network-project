@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,7 +39,17 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'aniTA_app',
+    'users',
 ]
+
+
+ARANGO_DB = {
+    'HOST': os.getenv("ARANGO_DB_HOST", "http://arangodb"),  # Corrected to match service name
+    'PORT': os.getenv("ARANGO_DB_PORT", "8529"),
+    'USERNAME': os.getenv("ARANGO_DB_USER", "root"),
+    'PASSWORD': os.getenv("ARANGO_DB_PASSWORD", "aitaArango"),
+    'DATABASE': os.getenv("ARANGO_DB_NAME", "aita_db")
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
