@@ -27,8 +27,8 @@
             <button class="close-btn">&times;</button>
             <h2>Log in to your account</h2>
             <p style="margin-bottom: 10px; line-height: 2.5; color: #7f7f7f">Welcome back! Please enter your details.</p>
-
-            <form method="post" action="{% url 'login' %}">
+            <p class="flash-err hidden">Invalid Credentials</p>
+            <form method="post" action="{% url 'users:login' %}">
                 {% csrf_token %}
                 <div class="form-group">
                     <label style="color: #505050;">Email*</label>
@@ -54,8 +54,8 @@
             <button class="close-btn">&times;</button>
             <h2>Sign up</h2>
             <p style="margin-bottom: 10px; line-height: 2.5; color: #7f7f7f">Enter your school email.</p>
-
-            <form method="post" action="{% url 'signup' %}">
+            <p class="flash-err hidden">There has been an error. Please try again later.</p>
+            <form method="post" action="{% url 'users:register' %}">
                 {% csrf_token %}
                 <div class="form-group form-select">
                     <label style="color: #505050;">I'm a*</label>
@@ -88,7 +88,9 @@
                 <button type="button" class="btn cancel">Cancel</button>
             </form>
         </div>
-
+        {% for msg in flash_success %}
+        <p class="flash-succ">{{ msg }}</p>
+        {% endfor %}
         <main class="hero">
             <div class="hero-content">
                 <h1>AI Powered Feedback</h1>

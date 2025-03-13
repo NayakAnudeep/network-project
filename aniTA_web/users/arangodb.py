@@ -16,8 +16,8 @@ if not sys_db.has_database(settings.ARANGO_DB['DATABASE']):
     sys_db.create_database(settings.ARANGO_DB['DATABASE'])
 
 # Now connect to the correct database
-db = client.db(settings.ARANGO_DB['DATABASE'], 
-               username=settings.ARANGO_DB['USERNAME'], 
+db = client.db(settings.ARANGO_DB['DATABASE'],
+               username=settings.ARANGO_DB['USERNAME'],
                password=settings.ARANGO_DB['PASSWORD'])
 
 # Check if the 'users' collection exists, create if missing
@@ -38,25 +38,25 @@ def register_user(username, email, password, role="student"):
 
     # Insert user data
     user_data = {
-        "username": username, 
-        "email": email, 
-        "password_hash": hashed_pswd.decode('utf-8'), 
-        "role": role, 
+        "username": username,
+        "email": email,
+        "password_hash": hashed_pswd.decode('utf-8'),
+        "role": role,
         "created_at": datetime.utcnow().isoformat()
     }
 
     users.insert(user_data)
-    return {"message": "User registration successful"}
+    return {"success": "User registration successful"}
 
-# Function to authenticate user
 def authenticate_user(email, password):
     users = db.collection('users')
     user_list = list(users.find({'email': email}))
 
-    if user_list:  # Ensure user_list is not empty
+    if user_list:
         user = user_list[0]
         if bcrypt.checkpw(password.encode('utf-8'), user["password_hash"].encode("utf-8")):
-            return {"message": "Authentication successful", "user": user}
-    
-    return {"error": "Invalid credentials"}
+            return {"failure": None, "user_id": user["_id"], "username": user["username"]}
+        else:
+            return {"failure": "Invalid credentials" }
 
+    return {"failure": "Invalid credentials"}

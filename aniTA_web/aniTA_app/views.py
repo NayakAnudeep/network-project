@@ -8,27 +8,30 @@ def index(request):
     template = loader.get_template("aniTA_app/index.html")
     # NOTE: This should be the template if the user is NOT logged in.
     # We should have an alternate html template for a logged in user.
-    context = {}
+    if request.session.get('user_id'): # TODO we should probably redirect here.
+        context = { "logged_in": True }
+    else:
+        context = { "logged_in": False }
+
+    context['flash_success'] = request.session.pop('flash_success', [])
     return HttpResponse(template.render(context, request))
 
-def login(request):
-    if request.method == "POST":
-        # TODO authentication
-        # Can redirect back to home ('/') but display a different view when logged in.
-        return redirect('/')
-    else:
-        return JsonResponse({'error': 'Method not allowed'}, status=405);
+# def login(request):
+#     if request.method == "POST":
+#         # TODO authentication
+#         # Can redirect back to home ('/') but display a different view when logged in.
+#         return redirect('/')
+#     else:
+#         return JsonResponse({'error': 'Method not allowed'}, status=405);
 
-def signup(request):
-    if request.method == "POST":
-        # TODO add account to D.B.
-        return redirect('/')
-    else:
-        return JsonResponse({'error': 'Method not allowed'}, status=405);    
+# def signup(request):
+#     if request.method == "POST":
+#         # TODO add account to D.B.
+#         return redirect('/')
+#     else:
+#         return JsonResponse({'error': 'Method not allowed'}, status=405);
 
 # def dashboard(request, arg_foo):
 #     template = loader.get_template("aniTA_app/dashboard.html")
 #     context = { "arg_foo": arg_foo }
 #     return HttpResponse(template.render(context, request))
-
-
