@@ -31,4 +31,9 @@ def dashboard(request):
     context = {}
     return HttpResponse(template.render(context, request))
 
+def courses(request):
+    template = loader.get_template("aniTA_app/courses.html")
+    context = {}
+    return HttpResponse(template.render(context, request))
+
 
