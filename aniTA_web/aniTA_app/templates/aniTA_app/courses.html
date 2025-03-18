@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AniTA</title>
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/courses.css' %}" />
+    <script src="{% static 'aniTA_app/js/index.js' %}" defer></script>  
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo">AniTA</div>
+            </div>
+            <div class="course-title">
+                <h2>ATLS 5214</h2>
+                <p>Big Data Architecture</p>
+            </div>
+            <div class="nav-menu">
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">📊</span>
+                    Dashboard
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">🔄</span>
+                    Regrade Requests
+                </a>
+                <a href="#" class="nav-item active">
+                    <span class="nav-icon">👨‍🏫</span>
+                    All Courses
+                </a>
+            </div>
+            <div class="account-section">
+                <div class="account-icon"></div>
+                <span>Account</span>
+            </div>
+        </div>
+
+        <!-- All Courses -->
+        <div class="main-content">
+            <div class="header">
+                <div class="header-title">
+                    <h1>All Courses</h1>
+                    <!-- Semester Filter -->
+                    <div class="semester-filter">
+                        <span>Semester:</span>
+                        <select>
+                            <option>Spring 2025</option>
+                            <option>Fall 2024</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="add-button">Add Course</button>
+            </div>
+
+            <div class="courses-container">
+                <!-- Course Card 1 -->
+                <div class="course-card">
+                    <div class="course-header">
+                        <div class="course-title-card">STAT 5000</div>
+                        <div class="course-subtitle">Statistical Methods and App I</div>
+                    </div>
+                    <div class="course-body">
+                        <div class="course-info">
+                            <div class="course-info-item">
+                                <div class="course-info-label">Instructor:</div>
+                                <div class="course-info-value">Dr. Smith</div>
+                            </div>
+                            <div class="course-info-item">
+                                <div class="course-info-label">Schedule:</div>
+                                <div class="course-info-value">MWF 10:00-11:00 AM</div>
+                            </div>
+                            <div class="course-info-item">
+                                <div class="course-info-label">Current Grade:</div>
+                                <div class="course-info-value">92% (A-)</div>
+                            </div>
+                        </div>
+                        <span class="badge badge-warning">2 Assignments Due</span>
+                    </div>
+                    <div class="course-footer">
+                        <div class="upcoming-assignments">Next due: Mar 14</div>
+                        <a href="#" class="view-course">View Course</a>
+                    </div>
+                </div>
+
+                <!-- Course Card 2 -->
+                <div class="course-card">
+                    <div class="course-header">
+                        <div class="course-title-card">ATLS 5214</div>
+                        <div class="course-subtitle">Big Data Architecture</div>
+                    </div>
+                    <div class="course-body">
+                        <div class="course-info">
+                            <div class="course-info-item">
+                                <div class="course-info-label">Instructor:</div>
+                                <div class="course-info-value">Prof. Greenstreet</div>
+                            </div>
+                            <div class="course-info-item">
+                                <div class="course-info-label">Schedule:</div>
+                                <div class="course-info-value">MW 5:05-6:20 PM</div>
+                            </div>
+                            <div class="course-info-item">
+                                <div class="course-info-label">Current Grade:</div>
+                                <div class="course-info-value">100% (A)</div>
+                            </div>
+                        </div>
+                        <span class="badge badge-success">All Assignments Submitted</span>
+                    </div>
+                    <div class="course-footer">
+                        <div class="upcoming-assignments">Next due: Mar 20</div>
+                        <a href="#" class="view-course">View Course</a>
+                    </div>
+                </div>
+
+                <!-- Course Card 3 -->
+                <div class="course-card">
+                    <div class="course-header">
+                        <div class="course-title-card">IAFS 1000</div>
+                        <div class="course-subtitle">International Affairs</div>
+                    </div>
+                    <div class="course-body">
+                        <div class="course-info">
+                            <div class="course-info-item">
+                                <div class="course-info-label">Instructor:</div>
+                                <div class="course-info-value">Dr. Bearce</div>
+                            </div>
+                            <div class="course-info-item">
+                                <div class="course-info-label">Schedule:</div>
+                                <div class="course-info-value">MWF 2:00-3:00 PM</div>
+                            </div>
+                            <div class="course-info-item">
+                                <div class="course-info-label">Current Grade:</div>
+                                <div class="course-info-value">87% (B+)</div>
+                            </div>
+                        </div>
+                        <span class="badge badge-warning">1 Assignment Due</span>
+                    </div>
+                    <div class="course-footer">
+                        <div class="upcoming-assignments">Next due: Mar 17</div>
+                        <a href="#" class="view-course">View Course</a>
+                    </div>
+                </div>
+
+            <!-- Empty state (hidden by default) -->
+            <div class="empty-state" style="display: none;">
+                <div class="empty-state-icon">📚</div>
+                <h3>No courses found</h3>
+                <p>You are not enrolled in any courses for the selected semester.</p>
+                <button class="add-button" style="margin-top: 20px;">Add a Course</button>
+            </div>
+        </div>
+    </div>
+    </div>
+</body>
+</html>
