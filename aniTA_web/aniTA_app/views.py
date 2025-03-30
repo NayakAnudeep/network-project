@@ -5,31 +5,13 @@ from django.shortcuts import redirect
 
 # Create your views here.
 def index(request):
-    template = loader.get_template("aniTA_app/index.html")
-    # NOTE: This should be the template if the user is NOT logged in.
-    # We should have an alternate html template for a logged in user.
-    if request.session.get('user_id'): # TODO we should probably redirect here.
-        context = { "logged_in": True }
+    if request.session.get('user_id'):
+        return redirect('/dashboard')
     else:
-        context = { "logged_in": False }
-
-    context['flash_success'] = request.session.pop('flash_success', [])
-    return HttpResponse(template.render(context, request))
-
-# def login(request):
-#     if request.method == "POST":
-#         # TODO authentication
-#         # Can redirect back to home ('/') but display a different view when logged in.
-#         return redirect('/')
-#     else:
-#         return JsonResponse({'error': 'Method not allowed'}, status=405);
-
-# def signup(request):
-#     if request.method == "POST":
-#         # TODO add account to D.B.
-#         return redirect('/')
-#     else:
-#         return JsonResponse({'error': 'Method not allowed'}, status=405);
+        template = loader.get_template("aniTA_app/index.html")
+        context = dict()
+        context['flash_success'] = request.session.pop('flash_success', [])
+        return HttpResponse(template.render(context, request))
 
 def dashboard(request):
     template = loader.get_template("aniTA_app/dashboard.html")
@@ -40,5 +22,3 @@ def courses(request):
     template = loader.get_template("aniTA_app/courses.html")
     context = {}
     return HttpResponse(template.render(context, request))
-
-
