@@ -2,5 +2,5 @@
 **/__pycache__/
 db.sqlite3
 # Ignored folders
-.venv/
+venv/
 node_modules/
