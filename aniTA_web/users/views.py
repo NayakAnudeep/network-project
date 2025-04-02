@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import redirect
 import json
 from django.http import JsonResponse
 from .arangodb import register_user
@@ -25,9 +26,10 @@ def login(request):
         try:
             data = json.loads(request.body)
             match authenticate_user(data['email'], data['password']):
-                case {"failure": None, "user_id": user_id, "username": username}:
+                case {"failure": None, "user_id": user_id, "username": username, "role": role }:
                     request.session['user_id'] = user_id
                     request.session['username'] = username
+                    request.session['role'] = role
                     request.session.save()
                     response = {"success": True}
                 case x:
@@ -40,4 +42,9 @@ def login(request):
 @csrf_exempt
 def logout(request):
     if request.method == "POST":
-        logout(request)
+        request.session.flush()
+        if 'flash_success' not in request.session:
+            request.session['flash_success'] = []
+        request.session['flash_success'].append("Logged out successfully.")
+        return redirect('/')
+    return JsonResponse({"error": "Invalid request"}, status=400)

@@ -35,7 +35,7 @@ LOGIN_FORM.addEventListener('submit', async event => {
         const data = await response.json();
         if (response.ok) {
             if (data.success) { // redirect
-                window.location.href = window.origin + '/dashboard'; 
+                window.location.href = window.origin + '/';
             } else {
                 LOGIN_FLASH_ERROR_P.classList.remove('hidden');
             }
