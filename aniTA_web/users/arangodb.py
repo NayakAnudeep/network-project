@@ -20,10 +20,21 @@ db = client.db(settings.ARANGO_DB['DATABASE'],
                username=settings.ARANGO_DB['USERNAME'],
                password=settings.ARANGO_DB['PASSWORD'])
 
+# ┌─────────────────┐
+# │ Database Tables │
+# └─────────────────┘
 # Check if the 'users' collection exists, create if missing
 if not db.has_collection('users'):
     db.create_collection('users')
 
+if not db.has_collection('submission'):
+    db.create_collection('submission')
+
+if not db.has_collection('courses'):
+    db.create_collection('courses')
+# ┌───────────────────┐
+# │ Updates & Queries │
+# └───────────────────┘
 # Function to create a new user
 def register_user(username, email, password, role="student"):
     users = db.collection('users')
@@ -42,7 +53,8 @@ def register_user(username, email, password, role="student"):
         "email": email,
         "password_hash": hashed_pswd.decode('utf-8'),
         "role": role,
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.utcnow().isoformat(),
+        "courses": []
     }
 
     users.insert(user_data)
@@ -55,8 +67,332 @@ def authenticate_user(email, password):
     if user_list:
         user = user_list[0]
         if bcrypt.checkpw(password.encode('utf-8'), user["password_hash"].encode("utf-8")):
-            return {"failure": None, "user_id": user["_id"], "username": user["username"]}
+            return {
+                "failure": None,
+                "user_id": user["_id"],
+                "username": user["username"],
+                "role": user["role"]
+            }
         else:
             return {"failure": "Invalid credentials" }
 
     return {"failure": "Invalid credentials"}
+
+def db_add_course(class_code, class_title, instructor_id):
+    """
+    Add a course to the database.
+    Returns None if successful, otherwise, an error message string.
+    """
+    print(instructor_id, flush=True)
+    courses = db.collection('courses')
+    existing_course = list(courses.find({"class_code": class_code}))
+    if existing_course:
+        return "Course already exists."
+    courses.insert({
+        "class_code": class_code,
+        "class_title": class_title,
+        "instructor_id": instructor_id,
+        "assignments": []
+    })
+
+def db_instructor_courses(instructor_id):
+    courses = db.collection('courses')
+    courses_list = list(courses.find({"instructor_id": instructor_id}))
+    return courses_list
+
+def db_enroll_student_in_course(user_id, class_code):
+    users = db.collection('users')
+
+    try:
+        user = users.get(user_id)
+        if not user:
+            return "User not found."
+
+        courses = db.collection('courses')
+        course = list(courses.find({"class_code": class_code}))
+        if not course:
+            return "Course not found."
+
+        if "courses" not in user:
+            user["courses"] = []
+
+        if class_code in user["courses"]:
+            return "Student has already added this course."
+
+        user["courses"].append(class_code)
+        users.update(user)
+
+        return None # success
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+def student_courses_overview(user_id) -> dict:
+    print("HYAR", flush=True)
+    users = db.collection('users')
+    user_list = list(users.find({"_id": user_id}))
+    print("user_list", user_list, flush=True)
+    if not user_list:
+        return {"courses": []}
+
+    user_info = user_list[0]
+    course_codes = user_info.get("courses", [])
+    print("course_codes", course_codes, flush=True)
+    courses = db.collection('courses')
+    courses_data = []
+    # user_list [{'_key': '20773', '_id': 'users/20773', '_rev': '_jcfHWsq---', 'username': 'Bobo Fish', 'email': 'bobofish@fish.com', 'password_hash': '$2b$12$dsrSPntSWEQCYkQQeR6uWep0pIxZwkpgou4clr0b1v726N7SKhLTu', 'role': 'student', 'created_at': '2025-03-30T18:21:18.442794'}]
+    for code in course_codes:
+        course_list = list(courses.find({"class_code": code}))
+        print("course_list:", course_list, flush=True)
+        if course_list:
+            course = course_list[0]
+
+            # Find pending assignments
+            pending_assignments = get_pending_assignments(code, user_id)
+
+            courses_data.append({
+                "code": course["class_code"],
+                "title": course["class_title"],
+                "instructor": get_instructor_name(course["instructor_id"]),
+                "schedule": course.get("schedule", "Not specified"),
+                "n_pending_assignments": len(pending_assignments),
+                "next_due_date": get_next_due_date(pending_assignments),
+                "id": course["_id"]
+            })
+        else:
+            print("no course_list", flush=True)
+
+    return {"courses": courses_data}
+
+
+# def student_courses_overview(user_id) -> dict:
+#     users = db.collection('users')
+#     users_list = list(users.find({ "user_id" : user_id }))
+#     user_info = users_list[0]
+#     course_codes = user_info.courses
+#     # TODO query the courses collection for the following info
+#     return { "courses": [
+#         {
+#             "code": "ATLS 5214",
+#             "title": "Big Data Architecture",
+#             "instructor": "Greg Greenstreet",
+#             "schedule": "MW 5:05-6:20 PM",
+#             "grade": "100",
+#             "letter_grade": "A",
+#             "n_pending_assignments": 0,
+#             "next_due_date": None,
+#             "id": 42,
+#         },
+#         {
+#             "code": "STAT 5000",
+#             "title": "Statistical Methods and App I",
+#             "instructor": "John Smith",
+#             "schedule": "MWF 10:00-11:00 AM",
+#             "grade": "92",
+#             "letter_grade": "A-",
+#             "n_pending_assignments": 1,
+#             "next_due_date": "March 14",
+#             "id": 42,
+#         }
+#     ] }
+
+
+def get_pending_assignments(class_code, user_id):
+    """
+    Get assignments that haven't been submitted by the user yet
+
+    Parameters:
+    - class_code: The course code
+    - user_id: The student's user ID
+
+    Returns:
+    - List of pending assignment objects
+    """
+    # Get the course with its assignments
+    courses = db.collection('courses')
+    course_list = list(courses.find({"class_code": class_code}))
+
+    if not course_list:
+        return []
+
+    course = course_list[0]
+    assignments = course.get('assignments', [])
+
+    # Get the student's submissions for this course
+    submissions = db.collection('submission')
+    student_submissions = list(submissions.find({
+        "user_id": user_id,
+        "class_code": class_code
+    }))
+
+    # Create a set of submitted assignment IDs for quick lookup
+    submitted_assignment_ids = {sub.get("assignment_id") for sub in student_submissions}
+
+    # Filter assignments to only include those that haven't been submitted
+    pending = [a for a in assignments if a.get("id") not in submitted_assignment_ids]
+
+    return pending
+
+def get_next_due_date(pending_assignments):
+    if not pending_assignments:
+        return None
+
+    # Sort assignments by due date and return the nearest one
+    sorted_assignments = sorted(pending_assignments, key=lambda x: x.get("due_date", ""))
+    if sorted_assignments:
+        due_date = sorted_assignments[0].get("due_date")
+        if due_date:
+            return due_date
+    return None
+
+def get_instructor_name(instructor_id):
+    instructor = list(db.collection('users').find({"_id": instructor_id}))
+    if instructor:
+        return instructor[0].get("username", "Unknown")
+    return "Unknown"
+
+
+def db_create_assignment(class_code, assignment_name, description, due_date=None, total_points=100):
+    """
+    Add a new assignment to a course.
+
+    Parameters:
+    - class_code: The code identifying the course
+    - assignment_name: Name of the assignment
+    - description: Detailed description of the assignment
+    - due_date: Due date for the assignment (ISO format string)
+    - total_points: Maximum points for the assignment
+
+    Returns:
+    - None if successful, otherwise an error message string
+    """
+    try:
+        courses = db.collection('courses')
+        course_list = list(courses.find({"class_code": class_code}))
+
+        if not course_list:
+            return "Course not found."
+
+        course = course_list[0]
+
+        # Create a unique assignment ID within the course
+        assignment_id = f"{class_code}_{len(course.get('assignments', []))}"
+
+        # Create the assignment object
+        new_assignment = {
+            "id": assignment_id,
+            "name": assignment_name,
+            "description": description,
+            "due_date": due_date,
+            "total_points": total_points,
+            "created_at": datetime.utcnow().isoformat()
+        }
+
+        # Add the assignment to the course's assignments array
+        if "assignments" not in course:
+            course["assignments"] = []
+
+        course["assignments"].append(new_assignment)
+
+        # Update the course in the database
+        courses.update(course)
+
+        return None  # Success
+    except Exception as e:
+        return f"Error creating assignment: {str(e)}"
+
+
+
+
+def db_get_student_assignments(user_id, class_code=None):
+    """
+    Retrieve assignments for a student, optionally filtered by class code.
+
+    Parameters:
+    - user_id: The ID of the student
+    - class_code: Optional class code to filter assignments
+
+    Returns:
+    - Dictionary containing assignments grouped by course, with submission status
+    """
+    try:
+        # Verify user exists and is a student
+        users = db.collection('users')
+        user = users.get(user_id)
+
+        if not user or user.get('role') != 'student':
+            return {"error": "Invalid student ID"}
+
+        # Get courses the student is enrolled in
+        enrolled_courses = user.get('courses', [])
+        if not enrolled_courses:
+            return {"assignments": []}
+
+        # Filter by specific class if provided
+        if class_code:
+            if class_code not in enrolled_courses:
+                return {"error": "Student not enrolled in this course"}
+            enrolled_courses = [class_code]
+
+        # Get course data including assignments
+        courses = db.collection('courses')
+        submissions = db.collection('submission')
+
+        result = []
+
+        for code in enrolled_courses:
+            course_list = list(courses.find({"class_code": code}))
+            if not course_list:
+                continue
+
+            course = course_list[0]
+            assignments = course.get('assignments', [])
+
+            # Get student's submissions for this course
+            student_submissions = list(submissions.find({
+                "user_id": user_id,
+                "class_code": code
+            }))
+
+            # Create a map of assignment ID to submission for quick lookup
+            submission_map = {sub.get('assignment_id'): sub for sub in student_submissions}
+
+            course_assignments = []
+            for assignment in assignments:
+                assignment_id = assignment.get('id')
+                submission = submission_map.get(assignment_id)
+
+                # Determine status and grade
+                status = "Not Submitted"
+                grade = None
+                feedback = None
+
+                if submission:
+                    status = "Submitted"
+                    grade = submission.get('grade')
+                    feedback = submission.get('feedback')
+                    if grade is not None:
+                        status = "Graded"
+
+                course_assignments.append({
+                    "id": assignment_id,
+                    "name": assignment.get('name'),
+                    "description": assignment.get('description'),
+                    "due_date": assignment.get('due_date'),
+                    "total_points": assignment.get('total_points', 100),
+                    "status": status,
+                    "grade": grade,
+                    "feedback": feedback
+                })
+
+            # Add course with its assignments to the result
+            if course_assignments:
+                result.append({
+                    "class_code": code,
+                    "class_title": course.get('class_title'),
+                    "assignments": course_assignments
+                })
+
+        return {"assignments": result}
+
+    except Exception as e:
+        return {"error": f"Error retrieving assignments: {str(e)}"}
