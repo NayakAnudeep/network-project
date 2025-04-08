@@ -28,6 +28,17 @@ def link_nodes(edge_collection, from_id, to_id, attributes=None):
     edge_col = _get_edge_collection(edge_collection)
     return edge_col.insert(edge_doc)
 
+def link_question_to_source(question_id, source_id, similarity_score=None):
+    """Link a question to a source text using an edge."""
+    edge = {
+        "_from": question_id,
+        "_to": source_id
+    }
+    if similarity_score is not None:
+        edge["score"] = similarity_score  # Optional attribute
+
+    return question_source_col.insert(edge)
+
 # Specific edge functions
 def link_submission_to_mistake(sub_id, mistake_id):
     return link_nodes("submission_mistakes", sub_id, mistake_id)
