@@ -273,3 +273,54 @@ input {
     color: #34495e;
     font-size: 1.1rem;
 }
+
+/* Workflow Styles */
+.workflow {
+  margin-top: 60px;
+  margin-bottom: 60px;
+}
+
+.workflow h3 {
+  text-align: center;
+  font-size: 1.8rem;
+  margin-bottom: 40px;
+  color: #2c3e50;
+}
+
+.workflow-steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.workflow-step {
+  flex: 1;
+  padding: 20px;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  text-align: center;
+}
+
+.step-number {
+  width: 40px;
+  height: 40px;
+  background-color: #9370DB;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  margin: 0 auto 15px;
+}
+
+.workflow-step h4 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+}
+.workflow-step p {
+  color: #7f8c8d;
+  font-size: 0.95rem;
+}
