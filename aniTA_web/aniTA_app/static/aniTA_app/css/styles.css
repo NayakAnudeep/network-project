@@ -324,3 +324,36 @@ input {
   color: #7f8c8d;
   font-size: 0.95rem;
 }
+
+/* Benefits Styles */
+.benefits h3 {
+  text-align: center;
+  font-size: 1.8rem;
+  margin-bottom: 40px;
+  color: #2c3e50;
+}
+
+.benefits-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 30px;
+}
+
+.benefit {
+  padding: 25px;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  text-align: center;
+}
+
+.benefit h4 {
+  color: #9370DB;
+  margin-bottom: 15px;
+  font-size: 1.2rem;
+}
+
+.benefit p {
+  color: #7f8c8d;
+  line-height: 1.5;
+}
