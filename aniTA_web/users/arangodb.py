@@ -315,7 +315,30 @@ def db_create_assignment(class_code, assignment_name, description, due_date=None
     except Exception as e:
         return f"Error creating assignment: {str(e)}"
 
+def db_get_assignment_id(class_code, assignment_name):
+    try:
+        courses = db.collection('courses')
+        course_list = list(courses.find({"class_code": class_code}))
 
+        if not course_list:
+            return None  # Course not found
+
+        course = course_list[0]
+
+        # Check if assignments exist in the course
+        if "assignments" not in course or not course["assignments"]:
+            return None  # No assignments in this course
+
+        # Find the assignment by name
+        for assignment in course["assignments"]:
+            if assignment.get("name") == assignment_name:
+                return assignment.get("_key")  # Return the assignment's key/ID
+
+        return None  # Assignment not found
+
+    except Exception as e:
+        print(f"Error retrieving assignment ID: {str(e)}")
+        return None
 
 
 def db_get_student_assignments(user_id, class_code=None):

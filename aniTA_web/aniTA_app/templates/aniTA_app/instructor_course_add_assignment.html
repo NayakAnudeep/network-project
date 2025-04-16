@@ -33,7 +33,7 @@
         <!-- Add Assignment Form -->
         <div class="form-container">
             <h2>Add a New Assignment - {{ class_code }}</h2>
-            <form action="{% url 'add_assignment' %}" method="post">
+            <form action="{% url 'add_assignment' %}" method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 <!-- Hidden input field for class_code -->
                 <input type="hidden" name="class_code" value="{{ class_code }}">
@@ -53,6 +53,16 @@
                 <div>
                     <label for="total_points">Total Points:</label>
                     <input type="number" id="total_points" name="total_points" value="100" required>
+                </div>
+                <div>
+                    <label for="assignment_file">Assignment File:</label>
+                    <input type="file" id="assignment_file" name="assignment_file" accept=".pdf">
+                    <small>Supported formats: PDF</small>
+                </div>
+                <div>
+                    <label for="assignment_file">Solution File:</label>
+                    <input type="file" id="assignment_solution" name="solution_file" accept=".pdf">
+                    <small>Supported formats: PDF</small>
                 </div>
                 <button type="submit">Add Assignment</button>
             </form>
