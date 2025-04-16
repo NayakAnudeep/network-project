@@ -95,6 +95,22 @@ def db_add_course(class_code, class_title, instructor_id):
         "assignments": []
     })
 
+def db_get_course_assignments(class_code):
+    """
+    Returns info for course, and an indicator of whether there was an error.
+    """
+    # Get the course with its assignments
+    courses = db.collection('courses')
+    course_list = list(courses.find({"class_code": class_code}))
+    if not course_list:
+        return []
+
+    course = course_list[0]
+    assignments = course.get('assignments', [])
+    # print(assignments, flush=True)
+
+    return { "code": class_code, "assignments": assignments }, None
+
 def db_instructor_courses(instructor_id):
     courses = db.collection('courses')
     courses_list = list(courses.find({"instructor_id": instructor_id}))
@@ -194,7 +210,6 @@ def student_courses_overview(user_id) -> dict:
 #             "id": 42,
 #         }
 #     ] }
-
 
 def get_pending_assignments(class_code, user_id):
     """

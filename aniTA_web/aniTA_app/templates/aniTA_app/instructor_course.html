@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AniTA</title>
+        <title>{{ course.code }}</title>
         {% load static %}
         <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/styles.css' %}" />
         <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/instructor-dashboard.css' %}" />
@@ -18,7 +18,8 @@
 
         <nav class="navbar">
             <div class="nav-left">
-                <a href="{% url 'instructor_add_class' %}" class="nav-link">Add Class</a>
+                <a href="{% url 'instructor_dashboard' %}" class="nav-link">Dashboard</a>
+                <a href="{% url 'instructor_course_add_assignment' course_code=course.code %}" class="nav-link">Add Assignment</a>
             </div>
             <div class="nav-right">
                 <form action="{% url 'users:logout' %}" method="post" class="logout-form">
@@ -30,12 +31,11 @@
             </div>
         </nav>
 
-        <div class="course-list">
-            <h3>Your Courses</h3>
-            {% for course in courses %}
-            <p><a href="{% url 'instructor_course' course_code=course.class_code %}">{{ course.class_code }} - {{ course.class_title }}</a></p>
-            {% endfor %}
-        </div>
-
+        <h3>Assignments<h3>
+            <ul>
+                {% for assignment in course.assignments %}
+                <li><a href="#" target="_self">{{ assignment.name }}</a></li> <!-- TODO -->
+                {% endfor %}
+            </ul>
     </body>
 </html>

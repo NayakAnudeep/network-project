@@ -81,6 +81,49 @@ def instructor_dashboard(request):
     else:
         return redirect('/')
 
+def instructor_add_class(request):
+    user_id = request.session.get('user_id')
+    role = request.session.get('role')
+    if user_id and role == 'instructor':
+        template = loader.get_template("aniTA_app/instructor_add_class.html")
+        context = {}
+        context['flash_success'] = request.session.pop('flash_success', [])
+        context['flash_error'] = request.session.pop('flash_error', [])
+        return HttpResponse(template.render(context, request))
+    else:
+        return redirect('/')
+
+def instructor_course(request, course_code):
+    user_id = request.session.get('user_id')
+    role = request.session.get('role')
+    if user_id and role == 'instructor':
+        info, err = db_get_course_assignments(course_code)
+        if err:
+            if 'flash_error' not in request.session:
+                request.session['flash_error'] = []
+            request.session['flash_error'].append(f"Course not found: {course_code}")
+            return redirect('/instructor-dashboard')
+        else:
+            template = loader.get_template("aniTA_app/instructor_course.html")
+            context = { 'course': info }
+            context['flash_success'] = request.session.pop('flash_success', [])
+            context['flash_error'] = request.session.pop('flash_error', [])
+            return HttpResponse(template.render(context, request))
+    else:
+        return redirect('/')
+
+def instructor_course_add_assignment(request, course_code):
+    user_id = request.session.get('user_id')
+    role = request.session.get('role')
+    if user_id and role == 'instructor':
+        template = loader.get_template("aniTA_app/instructor_course_add_assignment.html")
+        context = { 'class_code': course_code }
+        context['flash_success'] = request.session.pop('flash_success', [])
+        context['flash_error'] = request.session.pop('flash_error', [])
+        return HttpResponse(template.render(context, request))
+    else:
+        return redirect('/')
+
 def courses(request):
     # Redirect home if the user is not logged in.
     if not (request.session.get('user_id') and request.session.get('role') == 'student'):
