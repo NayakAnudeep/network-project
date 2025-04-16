@@ -5,7 +5,8 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>AniTA</title>
         {% load static %}
-        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/styles.css' %}" />
+        <!-- <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/styles.css' %}" /> -->
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/instructor-dashboard.css' %}" />
         <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/student-dashboard.css' %}" />
     </head>
     <body>
@@ -15,69 +16,70 @@
         {% for msg in flash_error %}
         <p class="flash-err">{{ msg }}</p>
         {% endfor %}
-        
-        <!-- Add Class Form -->
-        <div class="form-container">
-            <h2>Add a New Class</h2>
-            <form action="{% url 'add_class' %}" method="post">
-                {% csrf_token %}
-                <div>
-                    <label for="class_code">Class Code:</label>
-                    <input type="text" id="class_code" name="class_code" placeholder="ABCD 1234" required>
-                </div>
-                <div>
-                    <label for="class_title">Class Title:</label>
-                    <input type="text" id="class_title" name="class_title" placeholder="Introduction to Example" required>
-                </div>
-                <div>
-                    <label for="class_schedule">Course Schedule:</label>
-                    <input type="text" id="class_schedule" name="class_schedule" placeholder="MWF" required>
-                </div>
-                <button type="submit">Add Class</button>
-            </form>
-        </div>
 
-        <!-- Add Assignment Form -->
-        <div class="form-container">
-            <h2>Add a New Assignment</h2>
-            <form action="{% url 'add_assignment' %}" method="post">
-                {% csrf_token %}
-                <div>
-                    <label for="class_code">Course:</label>
-                    <select id="class_code" name="class_code" required>
-                        <option value="" disabled selected>Select a course</option>
+        <div class="container">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="logo-container">
+                    <div class="logo">AniTA</div>
+                </div>
+                <div class="nav-menu">
+                    <a href="/instructor-dashboard" class="nav-item active">
+                        <span class="nav-icon">📚</span>
+                        All Courses
+                    </a>
+                </div>
+                <form action="{% url 'users:logout' %}" method="post" class="logout-form">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-button">
+                        Logout
+                    </button>
+                </form>
+
+                <div class="account-section">
+                    <div class="account-icon"></div>
+                    <span>Account</span>
+                </div>
+            </div>
+            <div class="main-content">
+                <div class="header">
+                    <div class="header-title">
+                        <h1>Professor Dashboard</h1>
+                        <span class="semester">All Courses</span>
+                    </div>
+                    <a href="{% url 'instructor_add_class' %}" class="add-button">Add Class</a>
+                </div>
+    
+                {% if error_message %}
+                <div class="error-message">
+                    {{ error_message }}
+                </div>
+                {% endif %}
+    
+                <div class="courses-section">
+                    <div class="course-cards">
+                        {% if courses %}
                         {% for course in courses %}
-                        <option value="{{ course.class_code }}">{{ course.class_code }} - {{ course.class_title }}</option>
+                        <div class="course-card">
+                            <div class="course-card-header">
+                                <div class="course-code">{{ course.class_code }}</div>
+                                <div class="course-title">{{ course.class_title }}</div>
+                            </div>
+                            <div class="course-card-body">
+                                <div class="course-action">
+                                    <a href="{% url 'instructor_course' course_code=course.class_code %}" class="view-course">View Course</a>
+                                </div>
+                            </div>
+                        </div>
                         {% endfor %}
-                    </select>
+                        {% else %}
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 50px 0; color: #666;">
+                            <p>You don't have any courses yet. Click the "Add Class" button to create your first course.</p>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                <div>
-                    <label for="assignment_name">Assignment Name:</label>
-                    <input type="text" id="assignment_name" name="assignment_name" placeholder="Homework 1" required>
-                </div>
-                <div>
-                    <label for="description">Description:</label>
-                    <textarea id="description" name="description" placeholder="Assignment description" required></textarea>
-                </div>
-                <div>
-                    <label for="due_date">Due Date:</label>
-                    <input type="date" id="due_date" name="due_date" required>
-                </div>
-                <div>
-                    <label for="total_points">Total Points:</label>
-                    <input type="number" id="total_points" name="total_points" value="100" required>
-                </div>
-                <button type="submit">Add Assignment</button>
-            </form>
+            </div>
         </div>
-        <form action="{% url 'users:logout' %}" method="post">
-            {% csrf_token %}
-            <button type="submit">
-                Logout
-            </button>
-        </form>
-        {% for course in courses %}
-        <p>{{ course.class_code }} {{ course.class_title }}</p>
-        {% endfor %}        
     </body>
 </html>

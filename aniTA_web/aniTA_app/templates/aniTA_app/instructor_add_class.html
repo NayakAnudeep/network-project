@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Add Class</title>
+        {% load static %}
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/styles.css' %}" />
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/instructor-dashboard.css' %}" />
+    </head>
+    <body>
+        {% for msg in flash_success %}
+        <p class="flash-succ">{{ msg }}</p>
+        {% endfor %}
+        {% for msg in flash_error %}
+        <p class="flash-err">{{ msg }}</p>
+        {% endfor %}
+
+        <nav class="navbar">
+            <div class="nav-left">
+                <a href="{% url 'instructor_dashboard' %}" class="nav-link">Dashboard</a>
+            </div>
+            <div class="nav-right">
+                <form action="{% url 'users:logout' %}" method="post" class="logout-form">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-button">
+                        Logout
+                    </button>
+                </form>
+            </div>
+        </nav>
+
+        <!-- Add Class Form -->
+        <div class="form-container">
+            <h2>Add a New Class</h2>
+            <form action="{% url 'add_class' %}" method="post">
+                {% csrf_token %}
+                <div>
+                    <label for="class_code">Class Code:</label>
+                    <input type="text" id="class_code" name="class_code" placeholder="ABCD 1234" required>
+                </div>
+                <div>
+                    <label for="class_title">Class Title:</label>
+                    <input type="text" id="class_title" name="class_title" placeholder="Introduction to Example" required>
+                </div>
+                <div>
+                    <label for="class_schedule">Course Schedule:</label>
+                    <input type="text" id="class_schedule" name="class_schedule" placeholder="MWF" required>
+                </div>
+                <button type="submit">Add Class</button>
+            </form>
+        </div>
+    </body>
+</html>

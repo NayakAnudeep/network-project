@@ -3,6 +3,7 @@ from django.template import loader
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from users.arangodb import *
+import requests
 
 # Create your views here.
 def index(request):
@@ -81,6 +82,49 @@ def instructor_dashboard(request):
     else:
         return redirect('/')
 
+def instructor_add_class(request):
+    user_id = request.session.get('user_id')
+    role = request.session.get('role')
+    if user_id and role == 'instructor':
+        template = loader.get_template("aniTA_app/instructor_add_class.html")
+        context = {}
+        context['flash_success'] = request.session.pop('flash_success', [])
+        context['flash_error'] = request.session.pop('flash_error', [])
+        return HttpResponse(template.render(context, request))
+    else:
+        return redirect('/')
+
+def instructor_course(request, course_code):
+    user_id = request.session.get('user_id')
+    role = request.session.get('role')
+    if user_id and role == 'instructor':
+        info, err = db_get_course_assignments(course_code)
+        if err:
+            if 'flash_error' not in request.session:
+                request.session['flash_error'] = []
+            request.session['flash_error'].append(f"Course not found: {course_code}")
+            return redirect('/instructor-dashboard')
+        else:
+            template = loader.get_template("aniTA_app/instructor_course.html")
+            context = { 'course': info }
+            context['flash_success'] = request.session.pop('flash_success', [])
+            context['flash_error'] = request.session.pop('flash_error', [])
+            return HttpResponse(template.render(context, request))
+    else:
+        return redirect('/')
+
+def instructor_course_add_assignment(request, course_code):
+    user_id = request.session.get('user_id')
+    role = request.session.get('role')
+    if user_id and role == 'instructor':
+        template = loader.get_template("aniTA_app/instructor_course_add_assignment.html")
+        context = { 'class_code': course_code }
+        context['flash_success'] = request.session.pop('flash_success', [])
+        context['flash_error'] = request.session.pop('flash_error', [])
+        return HttpResponse(template.render(context, request))
+    else:
+        return redirect('/')
+
 def courses(request):
     # Redirect home if the user is not logged in.
     if not (request.session.get('user_id') and request.session.get('role') == 'student'):
@@ -146,6 +190,9 @@ def add_assignment(request):
         due_date = request.POST.get('due_date')
         total_points = request.POST.get('total_points', 100)
 
+        assignment_file = request.FILES.get('assignment_file')
+        solution_file = request.FILES.get('solution_file')
+
         # Convert total_points to integer
         try:
             total_points = int(total_points)
@@ -157,11 +204,38 @@ def add_assignment(request):
             if 'flash_error' not in request.session:
                 request.session['flash_error'] = []
             request.session['flash_error'].append(f"Could not add assignment: {err}")
-        else:
-            if 'flash_success' not in request.session:
-                request.session['flash_success'] = []
-            request.session['flash_success'].append("Assignment created successfully.")
+            return redirect('/instructor-dashboard')
+
+        if assignment_file and solution_file:
+            assignment_id = db_get_assignment_id(class_code, assignment_name)
+            api_url = "https://ai-context-445405667866.us-central1.run.app/build-context/"
+            files = {
+                'module_pdf': (assignment_file.name, assignment_file, assignment_file.content_type),
+                'sample_solution_pdf': (solution_file.name, solution_file, solution_file.content_type)
+            }
+            data = {
+                'class_code': class_code,
+                'assignment_id': assignment_id
+            }
+            # Send the POST request to the API
+            response = requests.post(api_url, files=files, data=data)
+
+            if response.status_code == 200:
+                api_result = response.json()
+                if api_result.get('status') == 'success':
+                    if 'flash_success' not in request.session:
+                        request.session['flash_success'] = []
+                    request.session['flash_success'].append("Assignment created successfully and context built.")
+                else:
+                    if 'flash_error' not in request.session:
+                        request.session['flash_error'] = []
+                    request.session['flash_error'].append(f"Created assignment but failed to build context: {api_result.get('message')}")
+            else:
+                if 'flash_error' not in request.session:
+                    request.session['flash_error'] = []
+                request.session['flash_error'].append(f"Created assignment but failed to build context: API returned status {response.status_code}")
         return redirect('/instructor-dashboard')
+
     else:
         return redirect('/')
 

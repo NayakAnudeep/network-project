@@ -95,6 +95,22 @@ def db_add_course(class_code, class_title, instructor_id):
         "assignments": []
     })
 
+def db_get_course_assignments(class_code):
+    """
+    Returns info for course, and an indicator of whether there was an error.
+    """
+    # Get the course with its assignments
+    courses = db.collection('courses')
+    course_list = list(courses.find({"class_code": class_code}))
+    if not course_list:
+        return []
+
+    course = course_list[0]
+    assignments = course.get('assignments', [])
+    # print(assignments, flush=True)
+
+    return { "code": class_code, "assignments": assignments }, None
+
 def db_instructor_courses(instructor_id):
     courses = db.collection('courses')
     courses_list = list(courses.find({"instructor_id": instructor_id}))
@@ -194,7 +210,6 @@ def student_courses_overview(user_id) -> dict:
 #             "id": 42,
 #         }
 #     ] }
-
 
 def get_pending_assignments(class_code, user_id):
     """
@@ -300,7 +315,30 @@ def db_create_assignment(class_code, assignment_name, description, due_date=None
     except Exception as e:
         return f"Error creating assignment: {str(e)}"
 
+def db_get_assignment_id(class_code, assignment_name):
+    try:
+        courses = db.collection('courses')
+        course_list = list(courses.find({"class_code": class_code}))
 
+        if not course_list:
+            return None  # Course not found
+
+        course = course_list[0]
+
+        # Check if assignments exist in the course
+        if "assignments" not in course or not course["assignments"]:
+            return None  # No assignments in this course
+
+        # Find the assignment by name
+        for assignment in course["assignments"]:
+            if assignment.get("name") == assignment_name:
+                return assignment.get("_key")  # Return the assignment's key/ID
+
+        return None  # Assignment not found
+
+    except Exception as e:
+        print(f"Error retrieving assignment ID: {str(e)}")
+        return None
 
 
 def db_get_student_assignments(user_id, class_code=None):
