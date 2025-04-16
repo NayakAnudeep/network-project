@@ -207,3 +207,24 @@ p:has(+ p) {
 .sidebar form button:hover {
     background-color: #9370DB;
 }
+
+/* Assignment List */
+.assignment-name2 {
+    flex: 9;
+    text-align: left;
+    font-weight: 500;
+}
+
+.assignment-points2 {
+    text-align: left;
+    flex: 10;
+}
+
+.assignment-date2 {
+    flex: 11;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+    
