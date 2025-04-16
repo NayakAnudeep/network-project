@@ -7,6 +7,7 @@
         {% load static %}
         <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/styles.css' %}" />
         <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/instructor-dashboard.css' %}" />
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/student-dashboard.css' %}" />
     </head>
     <body>
         {% for msg in flash_success %}
@@ -16,26 +17,69 @@
         <p class="flash-err">{{ msg }}</p>
         {% endfor %}
 
-        <nav class="navbar">
-            <div class="nav-left">
-                <a href="{% url 'instructor_add_class' %}" class="nav-link">Add Class</a>
-            </div>
-            <div class="nav-right">
+        <div class="container">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="logo-container">
+                    <div class="logo">AniTA</div>
+                </div>
+                <div class="nav-menu">
+                    <a href="/instructor-dashboard" class="nav-item active">
+                        <span class="nav-icon">📚</span>
+                        All Courses
+                    </a>
+                </div>
                 <form action="{% url 'users:logout' %}" method="post" class="logout-form">
                     {% csrf_token %}
                     <button type="submit" class="logout-button">
                         Logout
                     </button>
                 </form>
+
+                <div class="account-section">
+                    <div class="account-icon"></div>
+                    <span>Account</span>
+                </div>
             </div>
-        </nav>
-
-        <div class="course-list">
-            <h3>Your Courses</h3>
-            {% for course in courses %}
-            <p><a href="{% url 'instructor_course' course_code=course.class_code %}">{{ course.class_code }} - {{ course.class_title }}</a></p>
-            {% endfor %}
+            <div class="main-content">
+                <div class="header">
+                    <div class="header-title">
+                        <h1>Professor Dashboard</h1>
+                        <span class="semester">All Courses</span>
+                    </div>
+                    <a href="{% url 'instructor_add_class' %}" class="add-button">Add Class</a>
+                </div>
+    
+                {% if error_message %}
+                <div class="error-message">
+                    {{ error_message }}
+                </div>
+                {% endif %}
+    
+                <div class="courses-section">
+                    <div class="course-cards">
+                        {% if courses %}
+                        {% for course in courses %}
+                        <div class="course-card">
+                            <div class="course-card-header">
+                                <div class="course-code">{{ course.class_code }}</div>
+                                <div class="course-title">{{ course.class_title }}</div>
+                            </div>
+                            <div class="course-card-body">
+                                <div class="course-action">
+                                    <a href="{% url 'instructor_course' course_code=course.class_code %}" class="view-course">View Course</a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 50px 0; color: #666;">
+                            <p>You don't have any courses yet. Click the "Add Class" button to create your first course.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
         </div>
-
     </body>
 </html>
