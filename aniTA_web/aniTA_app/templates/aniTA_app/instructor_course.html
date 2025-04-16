@@ -5,37 +5,83 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{{ course.code }}</title>
         {% load static %}
-        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/styles.css' %}" />
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/student-dashboard.css' %}" />
         <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/instructor-dashboard.css' %}" />
     </head>
     <body>
-        {% for msg in flash_success %}
-        <p class="flash-succ">{{ msg }}</p>
-        {% endfor %}
-        {% for msg in flash_error %}
-        <p class="flash-err">{{ msg }}</p>
-        {% endfor %}
-
-        <nav class="navbar">
-            <div class="nav-left">
-                <a href="{% url 'instructor_dashboard' %}" class="nav-link">Dashboard</a>
-                <a href="{% url 'instructor_course_add_assignment' course_code=course.code %}" class="nav-link">Add Assignment</a>
-            </div>
-            <div class="nav-right">
+        <div class="container">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="logo-container">
+                    <div class="logo">AniTA</div>
+                </div>
+                <div class="course-title-header">
+                    <p>{{ course.title }}</p>
+                </div>
+                <div class="nav-menu">
+                    <a href="/instructor-dashboard" class="nav-item active">
+                        <span class="nav-icon">🏠</span>
+                        Back to Dashboard
+                    </a>
+                </div>
                 <form action="{% url 'users:logout' %}" method="post" class="logout-form">
                     {% csrf_token %}
                     <button type="submit" class="logout-button">
                         Logout
                     </button>
                 </form>
+                <div class="account-section">
+                    <div class="account-icon"></div>
+                    <span>Account</span>
+                </div>
             </div>
-        </nav>
-
-        <h3>Assignments<h3>
-            <ul>
-                {% for assignment in course.assignments %}
-                <li><a href="#" target="_self">{{ assignment.name }}</a></li> <!-- TODO -->
-                {% endfor %}
-            </ul>
+    
+            <div class="main-content">
+                <div class="header">
+                    <div class="header-title">
+                        <h1>Assignments</h1>
+                        <span class="semester">{{ course.code }}</span>
+                    </div>
+                    <a href="{% url 'instructor_course_add_assignment' course_code=course.code %}" class="add-button">Add Assignment</a>
+                </div>
+    
+                <div class="assignment-section">
+                    <div class="submission-details">
+                        <div style="flex: 2; text-align: left;">Name</div>
+                        <div style="flex: 1; text-align: right;">Due Date</div>
+                    </div>
+    
+                    <div class="assignment-list">
+                        {% if course.assignments %}
+                        {% for assignment in course.assignments %}
+                        <div class="assignment-item">
+                            <div class="assignment-course">{{ assignment.class_code }}</div>
+                            <div class="assignment-name2"><a href="#" target="_self">{{ assignment.name }}</a></div>
+                            <div class="assignment-points2">
+                                {{ assignment.total_points }} pts
+                            </div>
+                            <div class="assignment-date2">
+                                <div class="date-info">
+                                    <span>{{ assignment.due_date|default:"No due date" }}</span>
+                                </div>
+                                {% if assignment.due_date %}
+                                <div class="date-progress">
+                                    <!-- Progress bar logic could be enhanced with JavaScript -->
+                                    <div class="date-progress-bar" style="width: 70%;"></div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="no-assignments">
+                            <p>You don't have any assignments for this course yet.</p>
+                            <p>Click the "Add Assignment" button to create your first assignment.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
     </body>
 </html>
