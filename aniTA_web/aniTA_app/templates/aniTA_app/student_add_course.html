@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>AniTA</title>
+        {% load static %}
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/styles.css' %}" />
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/student-add-course.css' %}" />
+    </head>
+    <body>
+        <h2>Add a Course</h2>
+        <form method="post" action="{% url 'student_add_course_post' %}" class="course-code-form">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="class_code">Enter Class Code:</label>
+                <input type="text" id="class_code" name="class_code" placeholder="Enter class code" required>
+            </div>
+            <button type="submit" class="submit-btn">Join Course</button>
+        </form>
+    </body>
+</html>

@@ -1,96 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AniTA</title>
-    {% load static %}
-    <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/student-dashboard.css' %}" />
-</head>
-<body>
-    <div class="container">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="logo-container">
-                <div class="logo">AniTA</div>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>AniTA</title>
+        {% load static %}
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/student-dashboard.css' %}" />
+    </head>
+    <body>
+        {% for msg in flash_success %}
+        <p class="flash-succ">{{ msg }}</p>
+        {% endfor %}
+        {% for msg in flash_error %}
+        <p class="flash-err">{{ msg }}</p>
+        {% endfor %}
+        <div class="container">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="logo-container">
+                    <div class="logo">AniTA</div>
+                </div>
+                <div class="nav-menu">
+                    <a href="/dashboard" class="nav-item active">
+                        <span class="nav-icon">📊</span>
+                        Dashboard
+                    </a>
+                    <a href="#" class="nav-item">
+                        <span class="nav-icon">🔄</span>
+                        Regrade Requests
+                    </a>
+                    <a href="/courses" class="nav-item">
+                        <span class="nav-icon">👨‍🏫</span>
+                        All Courses
+                    </a>
+                </div>
+                <form action="{% url 'users:logout' %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit">
+                        Logout
+                    </button>
+                </form>
+                <div class="account-section">
+                    <div class="account-icon"></div>
+                    <span>Account</span>
+                </div>
             </div>
-            <div class="course-title">
-                <h2>ATLS 5214</h2>
-                <p>Big Data Architecture</p>
-            </div>
-            <div class="nav-menu">
-                <a href="#" class="nav-item active">
-                    <span class="nav-icon">📊</span>
-                    Dashboard
-                </a>
-                <a href="#" class="nav-item">
-                    <span class="nav-icon">🔄</span>
-                    Regrade Requests
-                </a>
-                <a href="#" class="nav-item">
-                    <span class="nav-icon">👨‍🏫</span>
-                    All Courses
-                </a>
-            </div>
-            <div class="account-section">
-                <div class="account-icon"></div>
-                <span>Account</span>
-            </div>
-        </div>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="header">
-                <div class="header-title">
-                    <h1>ATLS 5214</h1>
-                    <span class="semester">Spring 2025</span>
-                </div>
-                <button class="add-button">Add Course</button>
-            </div>
-            <div class="submission-details">
-                <div style="flex: 1; text-align: left;">Name</div>
-                <div style="flex: 2; text-align: center;">Status</div>
-                <div style="flex: 1; text-align: right;">Released</div>
-                <div style="flex: 2; text-align: right;">Due</div>
-            </div>
-            <div class="assignment-list">
-                <!-- Quiz 2 -->
-                <div class="assignment-item">
-                    <div class="assignment-name">Quiz 2</div>
-                    <div class="assignment-status">
-                        <span class="status-indicator no-submission"></span>
-                        No Submission
-                    </div>
-                    <div class="assignment-date">
-                        <div class="date-info">
-                            <span>Mar 17 at 9:00AM</span>
-                            <span>Mar 24 at 5:00PM</span>
-                        </div>
-                        <div class="date-progress">
-                            <div class="date-progress-bar" style="width: 70%;"></div>
-                        </div>
+            <!-- Main Content -->
+            <div class="main-content">
+                <div class="header">
+                    <div class="header-title">
+                        <h1>Student Dashboard</h1>
+                        <span class="semester">Assignments</span>
                     </div>
                 </div>
-                
-                <!-- Quiz 1 -->
-                <div class="assignment-item">
-                    <div class="assignment-name">Quiz 1</div>
-                    <div class="assignment-status">
-                        <span class="status-indicator submitted"></span>
-                        Submitted
+
+                {% if error_message %}
+                <div class="error-message">
+                    {{ error_message }}
+                </div>
+                {% endif %}
+
+                <div class="assignment-section">
+                    <div class="submission-details">
+                        <div style="flex: 1; text-align: left;">Course</div>
+                        <div style="flex: 1; text-align: left;">Name</div>
+                        <div style="flex: 1; text-align: center;">Status</div>
+                        <div style="flex: 1; text-align: right;">Points</div>
+                        <div style="flex: 1; text-align: right;">Due</div>
                     </div>
-                    <div class="assignment-date">
-                        <div class="date-info">
-                            <span>Mar 03 at 9:00AM</span>
-                            <span>Mar 10 at 5:00PM</span>
+
+                    <div class="assignment-list">
+                        {% if assignments %}
+                        {% for assignment in assignments %}
+                        <div class="assignment-item">
+                            <div class="assignment-course">{{ assignment.class_code }}</div>
+                            <div class="assignment-name">{{ assignment.name }}</div>
+                            <div class="assignment-status">
+                                {% if assignment.status == "Not Submitted" %}
+                                <span class="status-indicator no-submission"></span>
+                                No Submission
+                                {% elif assignment.status == "Submitted" %}
+                                <span class="status-indicator submitted"></span>
+                                Submitted
+                                {% else %}
+                                <span class="status-indicator graded"></span>
+                                Graded: {{ assignment.grade }}/{{ assignment.total_points }}
+                                {% endif %}
+                            </div>
+                            <div class="assignment-points">
+                                {{ assignment.total_points }} pts
+                            </div>
+                            <div class="assignment-date">
+                                <div class="date-info">
+                                    <span>{{ assignment.due_date|default:"No due date" }}</span>
+                                </div>
+                                {% if assignment.due_date %}
+                                <div class="date-progress">
+                                    <!-- Progress bar logic could be enhanced with JavaScript -->
+                                    <div class="date-progress-bar" style="width: 70%;"></div>
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
-                        <div class="date-progress">
-                            <div class="date-progress-bar" style="width: 100%;"></div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="no-assignments">
+                            <p>You don't have any assignments yet.</p>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</body>
+    </body>
 </html>

@@ -132,13 +132,21 @@
     border-radius: 5px;
     cursor: pointer;
     font-size: 14px;
+    text-decoration: none;
+}
+
+/* Assignment section styles */
+.assignment-section {
+    width: 100%;
 }
 
 .submission-details {
     padding: 15px 20px;
     border-bottom: 1px solid #eee;
     display: flex;
-    justify-content: space-between;
+    font-weight: bold;
+    color: #666;
+    font-size: 14px;
 }
 
 .assignment-list {
@@ -152,15 +160,22 @@
     align-items: center;
 }
 
+.assignment-course {
+    flex: 1;
+    text-align: left;
+}
+
 .assignment-name {
-    flex: 2;
+    flex: 1;
+    text-align: left;
     font-weight: 500;
 }
 
 .assignment-status {
-    flex: 2;
+    flex: 1;
     display: flex;
     align-items: center;
+    justify-content: center;
 }
 
 .status-indicator {
@@ -170,26 +185,33 @@
     margin-right: 8px;
 }
 
-.status-indicator.submitted {
+.status-indicator.graded {
     background-color: #4CAF50;
 }
 
-.status-indicator.no-submission {
-    background-color: #2196F3;
+.status-indicator.submitted {
+    background-color: #FFC107;
 }
 
-.assignment-grade {
+.status-indicator.no-submission {
+    background-color: #F44336;
+}
+
+.assignment-points {
     flex: 1;
     text-align: right;
 }
 
 .assignment-date {
-    flex: 2;
+    flex: 1;
     text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
 }
 
 .date-progress {
-    width: 100%;
+    width: 50%;
     height: 6px;
     background-color: #eee;
     border-radius: 3px;
@@ -205,7 +227,55 @@
 
 .date-info {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     font-size: 12px;
     color: #666;
+}
+
+.no-assignments {
+    padding: 30px;
+    text-align: center;
+    color: #666;
+}
+
+.error-message {
+    padding: 15px;
+    margin: 15px;
+    background-color: #ffebee;
+    color: #c62828;
+    border-radius: 4px;
+    border-left: 4px solid #c62828;
+}
+
+.flash-succ {
+    padding: 15px;
+    margin: 15px;
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    border-radius: 4px;
+    border-left: 4px solid #2e7d32;
+}
+
+.flash-err {
+    padding: 15px;
+    margin: 15px;
+    background-color: #ffebee;
+    color: #c62828;
+    border-radius: 4px;
+    border-left: 4px solid #c62828;
+}
+
+.sidebar form button {
+    margin: 0 20px;
+    padding: 8px 15px;
+    background-color: #7B4AFF;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.sidebar form button:hover {
+    background-color: #9370DB;
 }
