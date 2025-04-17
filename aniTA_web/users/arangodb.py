@@ -180,37 +180,6 @@ def student_courses_overview(user_id) -> dict:
     return {"courses": courses_data}
 
 
-# def student_courses_overview(user_id) -> dict:
-#     users = db.collection('users')
-#     users_list = list(users.find({ "user_id" : user_id }))
-#     user_info = users_list[0]
-#     course_codes = user_info.courses
-#     # TODO query the courses collection for the following info
-#     return { "courses": [
-#         {
-#             "code": "ATLS 5214",
-#             "title": "Big Data Architecture",
-#             "instructor": "Greg Greenstreet",
-#             "schedule": "MW 5:05-6:20 PM",
-#             "grade": "100",
-#             "letter_grade": "A",
-#             "n_pending_assignments": 0,
-#             "next_due_date": None,
-#             "id": 42,
-#         },
-#         {
-#             "code": "STAT 5000",
-#             "title": "Statistical Methods and App I",
-#             "instructor": "John Smith",
-#             "schedule": "MWF 10:00-11:00 AM",
-#             "grade": "92",
-#             "letter_grade": "A-",
-#             "n_pending_assignments": 1,
-#             "next_due_date": "March 14",
-#             "id": 42,
-#         }
-#     ] }
-
 def get_pending_assignments(class_code, user_id):
     """
     Get assignments that haven't been submitted by the user yet
@@ -265,6 +234,8 @@ def get_instructor_name(instructor_id):
         return instructor[0].get("username", "Unknown")
     return "Unknown"
 
+def db_get_class_assignment_submissions(class_code, assignment_id): # TODO
+    return []
 
 def db_create_assignment(class_code, assignment_name, description, due_date=None, total_points=100):
     """

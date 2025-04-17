@@ -113,6 +113,20 @@ def instructor_course(request, course_code):
     else:
         return redirect('/')
 
+def class_assignment_submissions(request, course_code, assignment_id):
+    user_id = request.session.get('user_id')
+    role = request.session.get('role')
+    if user_id and role == 'instructor':
+        submissions = db_get_class_assignment_submissions(course_code, assignment_id)
+        template = loader.get_template("aniTA_app/class_assignment_submissions.html")
+        context = { "submissions": submissions }
+        context['flash_success'] = request.session.pop('flash_success', [])
+        context['flash_error'] = request.session.pop('flash_error', [])
+        return HttpResponse(template.render(context, request))
+    else:
+        return redirect('/')
+
+
 def instructor_course_add_assignment(request, course_code):
     user_id = request.session.get('user_id')
     role = request.session.get('role')
@@ -183,6 +197,9 @@ def add_class(request):
         return redirect('/')
 
 def add_assignment(request):
+    """
+    POST Request to add an assignment. (Made by te instructor.)
+    """
     if request.method == "POST":
         class_code = request.POST.get('class_code')
         assignment_name = request.POST.get('assignment_name')

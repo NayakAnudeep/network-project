@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Submissions</title>
+        {% load static %}
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/styles.css' %}" />
+    </head>
+    <body>
+        {% for msg in flash_success %}
+        <p class="flash-succ">{{ msg }}</p>
+        {% endfor %}
+        {% for msg in flash_error %}
+        <p class="flash-err">{{ msg }}</p>
+        {% endfor %}
+
+        <nav class="navbar">
+            <div class="nav-left">
+                <a href="{% url 'instructor_dashboard' %}" class="nav-link">Dashboard</a>
+            </div>
+            <div class="nav-right">
+                <form action="{% url 'users:logout' %}" method="post" class="logout-form">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-button">
+                        Logout
+                    </button>
+                </form>
+            </div>
+        </nav>
+
+        <ul>
+            {% for sub in submissions %}
+            <li><a href="#" target="_self">{{ sub.student_name }}</a></li>
+            {% endfor %}
+        </ul>
+    </body>
+</html>
