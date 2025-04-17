@@ -54,7 +54,7 @@ INSTALLED_APPS = [
 # ArangoDB Configuration
 
 ARANGO_DB = {
-    'HOST': os.getenv("ARANGO_DB_HOST", "https://d285766d74a6.arangodb.cloud"),  # ArangoGraph URL
+    'HOST': os.getenv("ARANGO_DB_HOST", "https://d285766d74a6.arangodb.cloud:8529"),  # ArangoGraph URL
     'PORT': os.getenv("ARANGO_DB_PORT", "8529"),  # Usually 8529 even for ArangoGraph
     'USERNAME': os.getenv("ARANGO_DB_USER", "root"),  # ArangoGraph username
     'PASSWORD': os.getenv("ARANGO_DB_PASSWORD", "p8k1EmWeR5O150EJZMTE"),  # ArangoGraph password

@@ -1,6 +1,7 @@
 # users/arango/graph_manager.py
 from users.arangodb import db
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,7 @@ def initialize_graph():
                 'to_vertex_collections': ['Submissions']
             }
         ]
-        
+        milar, 
         # Add edge definitions to graph
         for edge_def in edge_definitions:
             graph.create_edge_definition(
