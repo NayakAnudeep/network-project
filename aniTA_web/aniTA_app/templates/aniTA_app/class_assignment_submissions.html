@@ -43,21 +43,6 @@
                 </div>
             </div>
 
-        <!-- <nav class="navbar">
-            <div class="nav-left">
-                <a href="{% url 'instructor_dashboard' %}" class="nav-link"> Back to Dashboard</a>
-            </div>
-            <div class="nav-right">
-                <form action="{% url 'users:logout' %}" method="post" class="logout-form">
-                    {% csrf_token %}
-                    <button type="submit" class="logout-button">
-                        Logout
-                    </button>
-                </form>
-                
-            </div>
-        </nav> -->
-
         <ul>
             {% for sub in submissions %}
             <li><a href="#" target="_self">{{ sub.student_name }}</a></li>

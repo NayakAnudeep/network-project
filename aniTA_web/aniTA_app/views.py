@@ -198,7 +198,7 @@ def add_class(request):
 
 def add_assignment(request):
     """
-    POST Request to add an assignment. (Made by te instructor.)
+    POST Request to add an assignment. (Made by the instructor.)
     """
     if request.method == "POST":
         class_code = request.POST.get('class_code')
@@ -277,3 +277,8 @@ def student_add_course_post(request):
         return redirect('/courses')
     else:
         redirect('/')
+
+def upload(request):
+    template = loader.get_template("aniTA_app/upload.html")
+    context = {}
+    return HttpResponse(template.render(context, request))

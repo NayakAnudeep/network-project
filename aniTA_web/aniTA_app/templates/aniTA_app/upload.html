@@ -1,11 +1,93 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>File Upload</title>
+        {% load static %}
+    </head>
+    <style>
+        .upload-container {
+            display: flex;
+            flex-direction: column;
+            max-width: 400px;
+            margin: 20px auto;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-input {
+            margin-bottom: 12px;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background-color: white;
+        }
+
+        .selected-file {
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: #495057;
+        }
+
+        .upload-button {
+            background-color: #4a6fff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .upload-button:hover {
+            background-color: #3255db;
+        }
+
+        .upload-button:disabled {
+            background-color: #b4b4b4;
+            cursor: not-allowed;
+        }
+    </style>
+    <body>
+        <!-- <input type="file" id="fileInput">
+        <button onclick="uploadFile()">Upload</button> -->
+        <div class="upload-container">
+            <input type="file" id="fileInput" class="file-input", accept=".pdf">
+            <small>Supported formats: PDF</small>
+            <div class="selected-file" id="selectedFile"></div>
+            <button onclick="uploadFile()" class="upload-button" id="uploadBtn">Upload</button>
+        </div>
     
-</body>
+        <!-- <script>
+            function uploadFile() {
+                const fileInput = document.getElementById('fileInput');
+                const file = fileInput.files[0];
+
+                if (file) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    fetch('/upload_assignment', { // TODO: Check server endpoint
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.text())
+                    .then(result => {
+                        console.log('Success:', result);
+                        alert('File uploaded successfully!');
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred during upload.');
+                    });
+                } else {
+                    alert('Please select a file.');
+                }
+            }
+        </script> -->
+    </body>
 </html>
