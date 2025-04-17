@@ -1,6 +1,3 @@
 .DS_STORE
 **/__pycache__/
 db.sqlite3
-# Ignored folders
-venv/
-node_modules/
