@@ -43,12 +43,57 @@ INSTALLED_APPS = [
 ]
 
 
+#ARANGO_DB = {
+#    'HOST': os.getenv("ARANGO_DB_HOST", "http://arangodb"),  # Corrected to match service name
+#    'PORT': os.getenv("ARANGO_DB_PORT", "8529"),
+#    'USERNAME': os.getenv("ARANGO_DB_USER", "root"),
+#    'PASSWORD': os.getenv("ARANGO_DB_PASSWORD", "aitaArango"),
+#    'DATABASE': os.getenv("ARANGO_DB_NAME", "aita_db")
+#}
+
+# ArangoDB Configuration
+
 ARANGO_DB = {
-    'HOST': os.getenv("ARANGO_DB_HOST", "http://arangodb"),  # Corrected to match service name
-    'PORT': os.getenv("ARANGO_DB_PORT", "8529"),
-    'USERNAME': os.getenv("ARANGO_DB_USER", "root"),
-    'PASSWORD': os.getenv("ARANGO_DB_PASSWORD", "aitaArango"),
-    'DATABASE': os.getenv("ARANGO_DB_NAME", "aita_db")
+    'HOST': os.getenv("ARANGO_DB_HOST", "https://d285766d74a6.arangodb.cloud:8529"),  # ArangoGraph URL
+    'PORT': os.getenv("ARANGO_DB_PORT", "8529"),  # Usually 8529 even for ArangoGraph
+    'USERNAME': os.getenv("ARANGO_DB_USER", "root"),  # ArangoGraph username
+    'PASSWORD': os.getenv("ARANGO_DB_PASSWORD", "p8k1EmWeR5O150EJZMTE"),  # ArangoGraph password
+    'DATABASE': os.getenv("ARANGO_DB_NAME", "aita_db"),  # Your database name
+    'VERIFY_SSL': True  # Enable SSL verification for cloud deployment
+}
+
+ARANGO_CONFIG = {
+    'hosts': 'https://your-instance.arangodb.cloud:8529',
+    'database': 'ai_ta_graph',
+    'username': 'username',
+    'password': 'password',
+    'verify': True,  # SSL verification
+}
+
+# Define your collections
+ARANGO_COLLECTIONS = {
+    'document': [
+        'Students', 'Submissions', 'Mistakes', 
+        'Feedback', 'Rubrics', 'Instructors', 'Courses'
+    ],
+    'edge': [
+        'SubmissionMistakes', 'MistakeFeedback', 'RubricMistakes',
+        'SubmissionGrades', 'CourseSubmissions', 'InstructorCourses',
+        'StudentSubmissions'
+    ]
+}
+
+# Define graph structure
+ARANGO_GRAPH = {
+    'name': 'ai_ta_graph',
+    'edge_definitions': [
+        {
+            'edge_collection': 'SubmissionMistakes',
+            'from_vertex_collections': ['Submissions'],
+            'to_vertex_collections': ['Mistakes']
+        },
+        # Add other edge definitions
+    ]
 }
 
 MIDDLEWARE = [
