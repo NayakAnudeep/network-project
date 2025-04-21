@@ -4,6 +4,9 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 from users.arangodb import *
 import requests
+import io # soon to be unused
+import os
+import tempfile
 
 # Create your views here.
 def index(request):
@@ -196,6 +199,13 @@ def add_class(request):
     else:
         return redirect('/')
 
+def convert_to_buffered_reader(uploaded_file):
+    """Converts an InMemoryUploadedFile to an _io.BytesIO (TODO want _io.BufferedReader)."""
+    # uploaded_file.file => _io.BytesIO
+    # uploaded_file.file.read() => <class 'bytes'>
+    # io.BufferedReader(uploaded_file.file) => _io.BufferedReader()
+    return io.BufferedReader(uploaded_file.file)
+
 def add_assignment(request):
     """
     POST Request to add an assignment. (Made by the instructor.)
@@ -225,36 +235,59 @@ def add_assignment(request):
 
         if assignment_file and solution_file:
             assignment_id = db_get_assignment_id(class_code, assignment_name)
-            api_url = "https://ai-context-445405667866.us-central1.run.app/build-context/"
-            files = {
-                'module_pdf': (assignment_file.name, assignment_file, assignment_file.content_type),
-                'sample_solution_pdf': (solution_file.name, solution_file, solution_file.content_type)
-            }
-            data = {
-                'class_code': class_code,
-                'assignment_id': assignment_id
-            }
-            # Send the POST request to the API
-            response = requests.post(api_url, files=files, data=data)
+            assert assignment_id
+            # api_url = "https://ai-context-445405667866.us-central1.run.app/build-context/"
+            api_url = "https://ai-vector-search-assessment-445405667866.us-central1.run.app/build-context/"
 
-            if response.status_code == 200:
-                api_result = response.json()
-                if api_result.get('status') == 'success':
-                    if 'flash_success' not in request.session:
-                        request.session['flash_success'] = []
-                    request.session['flash_success'].append("Assignment created successfully and context built.")
-                else:
-                    if 'flash_error' not in request.session:
-                        request.session['flash_error'] = []
-                    request.session['flash_error'].append(f"Created assignment but failed to build context: {api_result.get('message')}")
-            else:
-                if 'flash_error' not in request.session:
-                    request.session['flash_error'] = []
-                request.session['flash_error'].append(f"Created assignment but failed to build context: API returned status {response.status_code}")
+            # Use context managers for temporary files
+            with tempfile.NamedTemporaryFile(suffix='.pdf') as assignment_temp, \
+                 tempfile.NamedTemporaryFile(suffix='.pdf') as solution_temp:
+
+                # Write uploaded files to temp files
+                for chunk in assignment_file.chunks():
+                    assignment_temp.write(chunk)
+                assignment_temp.flush()
+
+                for chunk in solution_file.chunks():
+                    solution_temp.write(chunk)
+                solution_temp.flush()
+
+                # Use the files for the API request
+                files = {
+                    'module_pdf': open(assignment_temp.name, 'rb'),
+                    'sample_solution_pdf': open(solution_temp.name, 'rb')
+                }
+
+                data = {
+                    'class_code': class_code,
+                    'assignment_id': assignment_id
+                }
+
+                try:
+                    # API request
+                    response = requests.post(api_url, files=files, data=data)
+
+                    # Process response
+                    if response.status_code == 200:
+                        api_result = response.json()
+                        if api_result.get('status') == 'success':
+                            if 'flash_success' not in request.session:
+                                request.session['flash_success'] = []
+                            request.session['flash_success'].append("Assignment created successfully and context built.")
+                        else:
+                            if 'flash_error' not in request.session:
+                                request.session['flash_error'] = []
+                            request.session['flash_error'].append(f"Created assignment but failed to build context: {api_result.get('message')}")
+                    else:
+                        if 'flash_error' not in request.session:
+                            request.session['flash_error'] = []
+                        request.session['flash_error'].append(f"Created assignment but failed to build context: API returned status {response.status_code}")
+                finally:
+                    # Close the file handlers opened for the request
+                    for f in files.values():
+                        f.close()
+
         return redirect('/instructor-dashboard')
-
-    else:
-        return redirect('/')
 
 def student_add_course_get(request):
     template = loader.get_template("aniTA_app/student_add_course.html")

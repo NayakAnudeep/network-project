@@ -303,7 +303,7 @@ def db_get_assignment_id(class_code, assignment_name):
         # Find the assignment by name
         for assignment in course["assignments"]:
             if assignment.get("name") == assignment_name:
-                return assignment.get("_key")  # Return the assignment's key/ID
+                return assignment.get("id")  # Return the assignment's key/ID
 
         return None  # Assignment not found
 
