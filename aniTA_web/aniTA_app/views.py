@@ -121,7 +121,8 @@ def class_assignment_submissions(request, course_code, assignment_id):
     user_id = request.session.get('user_id')
     role = request.session.get('role')
     if user_id and role == 'instructor':
-        submissions = db_get_class_assignment_submissions(course_code, assignment_id)
+        submissions = db_get_class_assignment_submissions_metadata(course_code, assignment_id)
+        print("submissions:", submissions, flush=True)
         template = loader.get_template("aniTA_app/class_assignment_submissions.html")
         context = { "submissions": submissions }
         context['flash_success'] = request.session.pop('flash_success', [])
@@ -333,15 +334,46 @@ def upload(request, class_code, assignment_id):
             with open(submission_temp.name, 'rb') as submission_pdf:
                 encoded_pdf = base64.b64encode(submission_pdf.read()).decode('utf-8')
 
-        err = db_add_submission(user_id, class_code, assignment_id, encoded_pdf, file_name)
-        if err:
-            if 'flash_error' not in request.session:
-                request.session['flash_error'] = []
-            request.session['flash_error'].append(f"Could not add submission: {err}")
-            return redirect('/dashboard')
+            err = db_add_submission(user_id, class_code, assignment_id, encoded_pdf, file_name)
+            if err:
+                if 'flash_error' not in request.session:
+                    request.session['flash_error'] = []
+                request.session['flash_error'].append(f"Could not add submission: {err}")
+                return redirect('/dashboard')
 
-        # TODO ping API to prompt grading
-        # TODO modify html to preview previous submission (iframe thing, I think)
+            # Call grading API
+            try:
+                api_url = "https://grading-api-445405667866.us-central1.run.app/grade-context/"
+                files = {'student_pdf': open(submission_temp.name, 'rb')}
+                data = {
+                    'student_id': str(user_id),
+                    'class_code': class_code,
+                    'assignment_id': assignment_id,
+                    'total_score': 10.0
+                }
+                print("=============")
+                print("sending to API:", data, flush=True)
+                print("=============")
+
+                response = requests.post(api_url, files=files, data=data)
+                print("API Response:", response.json(), flush=True)
+                # on success:
+                # {
+                #     "student_id": student_id,
+                #     "assignment_id": assignment_id,
+                #     "total_score": final_score,
+                #     "results": [
+                #         {
+                #         "question": question,
+                #         "score": score, # float
+                #         "justification": justification
+                #         },
+                #         ...
+                #     ]
+                # }
+
+            except Exception as e:
+                print("API Error:", str(e))  # Log but don't block submission
 
         if 'flash_success' not in request.session:
             request.session['flash_success'] = []
@@ -371,7 +403,7 @@ def upload(request, class_code, assignment_id):
 
 def view_pdf(request, submission_id):
     # Get submission from DB
-    submission = db_get_submission_by_id(submission_id)
+    submission = db_get_submission_by_numeric_id(submission_id)
     if not submission:
         return HttpResponse("PDF not found", status=404)
 
@@ -401,3 +433,18 @@ def view_pdf(request, submission_id):
         return response
     except TypeError:
         return HttpResponse("Invalid PDF data", status=500)
+
+def instructor_grade_submission(request, numeric_id):
+    template = loader.get_template("aniTA_app/instructor_grade_submission.html")
+
+    user_id = request.session.get('user_id') # for the instructor
+    previous_submission = db_get_submission_by_numeric_id(numeric_id)
+    context = {
+        "has_previous_submission": previous_submission is not None
+    }
+
+    if previous_submission:
+        context["submission_id"] = numeric_id
+        context["file_name"] = previous_submission.get("file_name")
+
+    return HttpResponse(template.render(context, request))

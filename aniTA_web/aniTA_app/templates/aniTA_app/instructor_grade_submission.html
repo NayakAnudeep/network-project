@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Grade Submission</title>
+        {% load static %}
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/instructor-grade-submission.css' %}" />
+    </head>
+    <body>
+        {% for msg in flash_success %}
+        <p class="flash-succ">{{ msg }}</p>
+        {% endfor %}
+        {% for msg in flash_error %}
+        <p class="flash-err">{{ msg }}</p>
+        {% endfor %}
+
+        <!-- serving context: {'has_previous_submission': True, -->
+        <!-- 'submission_id': 'submission/987', 'file_name': 'CSCI 3202 Project Intermediate Report.pdf'} -->
+        <div class="previous-submission">
+            {% if has_previous_submission %}
+            <h3>Assignment Submitted: {{ file_name }}</h3>
+            <iframe src="{% url 'view_pdf' submission_id=submission_id %}" width="100%" height="500px"></iframe>
+            {% else %}
+            <h3>No submission.</h3>
+            {% endif %}
+        </div>
+        <!-- TODO AI feedback -->
+        <!-- TODO grading form -->
+    </body>
+</html>

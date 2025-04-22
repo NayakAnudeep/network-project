@@ -45,7 +45,7 @@
 
         <ul>
             {% for sub in submissions %}
-            <li><a href="#" target="_self">{{ sub.student_name }}</a></li>
+            <li><a href="{% url 'instructor_grade_submission' numeric_id=sub.numeric_id %}" target="_self">{{ sub.student_name }}</a></li>
             {% endfor %}
         </ul>
     </body>

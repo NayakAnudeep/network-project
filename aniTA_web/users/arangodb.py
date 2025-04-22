@@ -234,8 +234,48 @@ def get_instructor_name(instructor_id):
         return instructor[0].get("username", "Unknown")
     return "Unknown"
 
-def db_get_class_assignment_submissions(class_code, assignment_id): # TODO
-    return []
+def db_get_class_assignment_submissions_metadata(class_code, assignment_id):
+    """
+    Retrieve all submissions for a specific assignment in a class.
+
+    Parameters:
+    - class_code: The course code
+    - assignment_id: The assignment ID
+
+    Returns:
+    - List of submission documents with student info
+    """
+    try:
+        submissions = db.collection('submission')
+        submission_list = list(submissions.find({
+            "class_code": class_code,
+            "assignment_id": assignment_id
+        }))
+
+        # Add student names to each submission
+        users = db.collection('users')
+        result = []
+        for sub in submission_list:
+            user = users.get(sub["user_id"])
+            if user:
+                metadata = {
+                    "_id": sub.get("_id"),
+                    "numeric_id": sub.get("_id").split("/")[-1],
+                    "user_id": sub["user_id"],
+                    "student_name": user.get("username", "Unknown"),
+                    "file_name": sub.get("file_name"),
+                    "submission_date": sub.get("submission_date"),
+                    "grade": sub.get("grade"),
+                    "feedback": sub.get("feedback"),
+                    "graded": sub.get("graded")
+                }
+                result.append(metadata)
+
+        return result
+
+    except Exception as e:
+        print(f"Error retrieving submissions: {str(e)}")
+        return []
 
 def db_create_assignment(class_code, assignment_name, description, due_date=None, total_points=100):
     """
@@ -509,7 +549,16 @@ def db_get_submission(user_id, class_code, assignment_id):
         print(f"Error retrieving submission: {str(e)}")
         return None
 
-def db_get_submission_by_id(submission_numeric_id):
+def db_get_submission_by_full_id(submission_id):
+    """Retrieve submission by numeric portion of ID"""
+    try:
+        submissions = db.collection('submission')
+        return submissions.get(submission_id)
+    except Exception as e:
+        print(f"Error retrieving submission: {str(e)}")
+        return None
+
+def db_get_submission_by_numeric_id(submission_numeric_id):
     """Retrieve submission by numeric portion of ID"""
     try:
         full_id = f"submission/{submission_numeric_id}"
