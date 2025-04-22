@@ -17,5 +17,6 @@ urlpatterns = [
     path("student_add_course_post/", views.student_add_course_post, name='student_add_course_post'),
     path("student-add-class/", views.student_add_course_get, name='student_add_course_get'),
     path("add_assignment/", views.add_assignment, name="add_assignment"),
-    path("upload_assignment/", views.upload, name='upload_assignment'),
+    path("upload_assignment/<str:class_code>/<str:assignment_id>", views.upload, name='upload_assignment'),
+    path("view_pdf/<str:submission_id>", views.view_pdf, name='view_pdf')
 ]

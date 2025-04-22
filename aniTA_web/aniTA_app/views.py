@@ -7,6 +7,7 @@ import requests
 import io # soon to be unused
 import os
 import tempfile
+import base64
 
 # Create your views here.
 def index(request):
@@ -311,7 +312,92 @@ def student_add_course_post(request):
     else:
         redirect('/')
 
-def upload(request):
-    template = loader.get_template("aniTA_app/upload.html")
-    context = {}
-    return HttpResponse(template.render(context, request))
+def upload(request, class_code, assignment_id):
+    if request.method == "POST":
+        submission = request.FILES.get('file_input')
+        print(type(submission), flush=True) # <class 'django.core.files.uploadedfile.InMemoryUploadedFile'>
+        user_id = request.session.get('user_id')
+        file_name = submission.name if submission else None
+        if not submission:
+            if 'flash_error' not in request.session:
+                request.session['flash_error'] = []
+            request.session['flash_error'].append("Could not add submission. Expected file.")
+            return redirect('/dashboard')
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf') as submission_temp:
+            # Write uploaded files to temp files
+            for chunk in submission.chunks():
+                submission_temp.write(chunk)
+            submission_temp.flush()
+
+            with open(submission_temp.name, 'rb') as submission_pdf:
+                encoded_pdf = base64.b64encode(submission_pdf.read()).decode('utf-8')
+
+        err = db_add_submission(user_id, class_code, assignment_id, encoded_pdf, file_name)
+        if err:
+            if 'flash_error' not in request.session:
+                request.session['flash_error'] = []
+            request.session['flash_error'].append(f"Could not add submission: {err}")
+            return redirect('/dashboard')
+
+        # TODO ping API to prompt grading
+        # TODO modify html to preview previous submission (iframe thing, I think)
+
+        if 'flash_success' not in request.session:
+            request.session['flash_success'] = []
+        request.session['flash_success'].append("Submitted assignment successfully.")
+        return redirect('/dashboard')
+    elif request.method == "GET":
+        template = loader.get_template("aniTA_app/upload.html")
+        user_id = request.session.get('user_id')
+        previous_submission = db_get_submission(user_id, class_code, assignment_id)
+
+        context = {
+            "class_code": class_code,
+            "assignment_id": assignment_id,
+            "has_previous_submission": previous_submission is not None
+        }
+
+        if previous_submission:
+            full_id = previous_submission.get("_id")
+            numeric_id = full_id.split('/')[1] if '/' in full_id else full_id
+            context["submission_id"] = numeric_id
+            context["file_name"] = previous_submission.get("file_name")
+
+        return HttpResponse(template.render(context, request))
+
+    else:
+        return redirect('/')
+
+def view_pdf(request, submission_id):
+    # Get submission from DB
+    submission = db_get_submission_by_id(submission_id)
+    if not submission:
+        return HttpResponse("PDF not found", status=404)
+
+    # Decode the PDF from base64
+    pdf_data = base64.b64decode(submission.get("file_content"))
+    print(f"PDF data length: {len(pdf_data) if pdf_data else 'None'}")
+    if not pdf_data:
+        return HttpResponse("PDF data not found", status=404)
+
+    # Decode the PDF from base64
+    try:
+        # # Debug: Write the PDF to a file to check its contents
+        # import os
+        # debug_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'debug_pdfs')
+        # os.makedirs(debug_dir, exist_ok=True)
+        # debug_file_path = os.path.join(debug_dir, f'submission_{submission_id}.pdf')
+
+        # with open(debug_file_path, 'wb') as f:
+        #     f.write(pdf_data)
+        # print(f"Debug PDF written to: {debug_file_path}")
+
+        # Return the PDF with proper content type
+        response = HttpResponse(pdf_data, content_type='application/pdf')
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        response['Content-Disposition'] = 'inline; filename="document.pdf"'
+        response
+        return response
+    except TypeError:
+        return HttpResponse("Invalid PDF data", status=500)

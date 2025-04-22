@@ -73,36 +73,38 @@
                     <div class="assignment-list">
                         {% if assignments %}
                         {% for assignment in assignments %}
-                        <div class="assignment-item">
-                            <div class="assignment-course">{{ assignment.class_code }}</div>
-                            <div class="assignment-name">{{ assignment.name }}</div>
-                            <div class="assignment-status">
-                                {% if assignment.status == "Not Submitted" %}
-                                <span class="status-indicator no-submission"></span>
-                                No Submission
-                                {% elif assignment.status == "Submitted" %}
-                                <span class="status-indicator submitted"></span>
-                                Submitted
-                                {% else %}
-                                <span class="status-indicator graded"></span>
-                                Graded: {{ assignment.grade }}/{{ assignment.total_points }}
-                                {% endif %}
-                            </div>
-                            <div class="assignment-points">
-                                {{ assignment.total_points }} pts
-                            </div>
-                            <div class="assignment-date">
-                                <div class="date-info">
-                                    <span>{{ assignment.due_date|default:"No due date" }}</span>
+                        <a href="{% url 'upload_assignment' class_code=assignment.class_code  assignment_id=assignment.id %}" class="assignment-link">
+                            <div class="assignment-item">
+                                <div class="assignment-course">{{ assignment.class_code }}</div>
+                                <div class="assignment-name">{{ assignment.name }}</div>
+                                <div class="assignment-status">
+                                    {% if assignment.status == "Not Submitted" %}
+                                    <span class="status-indicator no-submission"></span>
+                                    No Submission
+                                    {% elif assignment.status == "Submitted" %}
+                                    <span class="status-indicator submitted"></span>
+                                    Submitted
+                                    {% else %}
+                                    <span class="status-indicator graded"></span>
+                                    Graded: {{ assignment.grade }}/{{ assignment.total_points }}
+                                    {% endif %}
                                 </div>
-                                {% if assignment.due_date %}
-                                <div class="date-progress">
-                                    <!-- Progress bar logic could be enhanced with JavaScript -->
-                                    <div class="date-progress-bar" style="width: 70%;"></div>
+                                <div class="assignment-points">
+                                    {{ assignment.total_points }} pts
                                 </div>
-                                {% endif %}
+                                <div class="assignment-date">
+                                    <div class="date-info">
+                                        <span>{{ assignment.due_date|default:"No due date" }}</span>
+                                    </div>
+                                    {% if assignment.due_date %}
+                                    <div class="date-progress">
+                                        <!-- Progress bar logic could be enhanced with JavaScript -->
+                                        <div class="date-progress-bar" style="width: 70%;"></div>
+                                    </div>
+                                    {% endif %}
+                                </div>
                             </div>
-                        </div>
+                        </a>
                         {% endfor %}
                         {% else %}
                         <div class="no-assignments">
@@ -110,6 +112,7 @@
                         </div>
                         {% endif %}
                     </div>
+
                 </div>
             </div>
         </div>
