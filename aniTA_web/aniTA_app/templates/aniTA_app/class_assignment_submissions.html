@@ -9,6 +9,36 @@
         <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/instructor-dashboard.css' %}" />
     </head>
     <body>
+        <style>
+         ul {
+             list-style: none;
+             padding: 0;
+             margin: 20px;
+         }
+         li {
+             padding: 12px;
+             margin: 5px 0;
+             border-radius: 4px;
+             transition: background 0.2s;
+         }
+         li.graded {
+             background: #e8f5e9;
+         }
+         li.ungraded {
+             background: #fff3e0;
+         }
+         li:hover {
+             background: #bbdefb;
+         }
+         a {
+             text-decoration: none;
+             color: #333;
+             display: block;
+         }
+         .grade-status {
+             float: right;
+         }
+        </style>
         {% for msg in flash_success %}
         <p class="flash-succ">{{ msg }}</p>
         {% endfor %}
@@ -43,10 +73,19 @@
                 </div>
             </div>
 
-        <ul>
-            {% for sub in submissions %}
-            <li><a href="{% url 'instructor_grade_submission' numeric_id=sub.numeric_id %}" target="_self">{{ sub.student_name }}</a></li>
-            {% endfor %}
-        </ul>
+            <ul>
+                {% for sub in submissions %}
+                <li class="{% if sub.graded %}graded{% else %}ungraded{% endif %}">
+                    <a href="{% url 'instructor_grade_submission' numeric_id=sub.numeric_id %}" target="_self">
+                        {{ sub.student_name }}
+                        {% if sub.graded %}
+                        (Graded {{ sub.grade }})
+                        {% else %}
+                        Not Graded
+                        {% endif %}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
     </body>
 </html>

@@ -219,6 +219,7 @@ def add_assignment(request):
         due_date = request.POST.get('due_date')
         total_points = request.POST.get('total_points', 100)
 
+        instructions_file = request.FILES.get('instructions_file')
         assignment_file = request.FILES.get('assignment_file')
         solution_file = request.FILES.get('solution_file')
 
@@ -228,7 +229,20 @@ def add_assignment(request):
         except (ValueError, TypeError):
             total_points = 100
 
-        err = db_create_assignment(class_code, assignment_name, description, due_date, total_points)
+        with tempfile.NamedTemporaryFile(suffix='.pdf') as instructions_temp:
+            for chunk in instructions_file.chunks():
+                instructions_temp.write(chunk)
+            instructions_temp.flush()
+            with open(instructions_temp.name, 'rb') as instructions_pdf:
+                encoded_pdf = base64.b64encode(instructions_pdf.read()).decode('utf-8')
+
+        err = db_create_assignment(class_code,
+                                   assignment_name,
+                                   description,
+                                   due_date,
+                                   total_points,
+                                   encoded_pdf,
+                                   instructions_file.name)
         if err:
             if 'flash_error' not in request.session:
                 request.session['flash_error'] = []
@@ -357,6 +371,12 @@ def upload(request, class_code, assignment_id):
 
                 response = requests.post(api_url, files=files, data=data)
                 print("API Response:", response.json(), flush=True)
+                success = response['student_id']
+                if success:
+                    assignment_id = response['assignment_id']
+                    ai_score = response['total_score']
+                    ai_feedback = response['results']
+                    db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback)
                 # on success:
                 # {
                 #     "student_id": student_id,
@@ -395,7 +415,12 @@ def upload(request, class_code, assignment_id):
             numeric_id = full_id.split('/')[1] if '/' in full_id else full_id
             context["submission_id"] = numeric_id
             context["file_name"] = previous_submission.get("file_name")
+            context["graded"] = previous_submission.get("graded")
+            context["grade"] = previous_submission.get("grade")
+            context["feedback"] = previous_submission.get("feedback")
 
+        print("context[\"assignment_id\"] =", assignment_id, flush=True)
+        context["assignment_id"] = assignment_id
         return HttpResponse(template.render(context, request))
 
     else:
@@ -429,10 +454,27 @@ def view_pdf(request, submission_id):
         response = HttpResponse(pdf_data, content_type='application/pdf')
         response['X-Frame-Options'] = 'SAMEORIGIN'
         response['Content-Disposition'] = 'inline; filename="document.pdf"'
-        response
         return response
     except TypeError:
         return HttpResponse("Invalid PDF data", status=500)
+
+def view_assignment_instructions(request, assignment_id):
+    print("assignment_id:", assignment_id, flush=True)
+    file_content = db_get_assignment_instructions_file_content(assignment_id)
+
+    pdf_data = base64.b64decode(file_content)
+    if not pdf_data:
+        return HttpResponse("PDF data not found", status=404)
+
+    try:
+        # Return the PDF with proper content type
+        response = HttpResponse(pdf_data, content_type='application/pdf')
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        response['Content-Disposition'] = 'inline; filename="document.pdf"'
+        return response
+    except TypeError:
+        return HttpResponse("Invalid PDF data", status=500)
+
 
 def instructor_grade_submission(request, numeric_id):
     template = loader.get_template("aniTA_app/instructor_grade_submission.html")
@@ -446,5 +488,43 @@ def instructor_grade_submission(request, numeric_id):
     if previous_submission:
         context["submission_id"] = numeric_id
         context["file_name"] = previous_submission.get("file_name")
+        context["ai_score"] = previous_submission.get("ai_score")
+        context["ai_feedback"] = previous_submission.get("ai_feedback")
+        context["previous_grade"] = previous_submission.get("grade")
+        context["previous_feedback"] = previous_submission.get("feedback")
+        context["graded"] = previous_submission.get("graded")
+
+    print("in instructor_grade_submission")
+    print("serving context:", context, flush=True)
 
     return HttpResponse(template.render(context, request))
+
+
+def post_grade_submission(request, numeric_submission_id):
+    if request.method != "POST":
+        return redirect('/')
+
+    if not (request.session.get('user_id') and request.session.get('role') == 'instructor'):
+        return redirect('/')
+
+    grade = request.POST.get('grade')
+    feedback = request.POST.get('feedback')
+
+    try:
+        grade = float(grade)
+        if grade < 0 or grade > 100:
+            raise ValueError("Grade must be between 0 and 100")
+    except (ValueError, TypeError):
+        request.session['flash_error'] = ["Invalid grade value. Must be a number between 0 and 100."]
+        return redirect('/instructor-dashboard')
+
+    err = db_put_submission_grade(numeric_submission_id, grade, feedback)
+    if err:
+        if 'flash_error' not in request.session:
+            request.session['flash_error'] = []
+        request.session['flash_error'].append(f"Failed to submit grade: {err}")
+    else:
+        if 'flash_success' not in request.session:
+            request.session['flash_success'] = []
+        request.session['flash_success'].append("Grade submitted successfully")
+    return redirect('/instructor-dashboard')

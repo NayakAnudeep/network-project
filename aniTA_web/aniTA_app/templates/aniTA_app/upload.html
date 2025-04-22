@@ -47,6 +47,24 @@
      }
     </style>
     <body>
+        <div class="Instructions">
+            <h3>Instructions</h3>
+            <iframe src="{% url 'view_assignment_instructions' assignment_id=assignment_id %}" width="100%" height="500px"></iframe>
+        </div>
+
+        {% if has_previous_submission %}
+        <div class="previous-submission">
+            <h3>Previously Submitted: {{ file_name }}</h3>
+            <iframe src="{% url 'view_pdf' submission_id=submission_id %}" width="100%" height="500px"></iframe>
+        </div>
+        {% if graded %}
+        <div class="grading-info" style="margin-top: 20px; padding: 15px; background: #f0f8ff; border-radius: 5px;">
+            <h4>Grading Results</h4>
+            <p><strong>Grade:</strong> {{ grade }}</p>
+            <p><strong>Feedback:</strong> {{ feedback }}</p>
+        </div>
+        {% endif %}
+        {% else %}
         <form action="{% url 'upload_assignment' class_code=class_code assignment_id=assignment_id %}" method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <div>
@@ -56,12 +74,6 @@
             </div>
             <button type="submit" class="upload-button" id="uploadBtn">Upload</button>
         </form>
-
-        {% if has_previous_submission %}
-        <div class="previous-submission">
-            <h3>Previously Submitted: {{ file_name }}</h3>
-            <iframe src="{% url 'view_pdf' submission_id=submission_id %}" width="100%" height="500px"></iframe>
-        </div>
         {% endif %}
     </body>
 </html>

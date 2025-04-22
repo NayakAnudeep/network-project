@@ -277,7 +277,7 @@ def db_get_class_assignment_submissions_metadata(class_code, assignment_id):
         print(f"Error retrieving submissions: {str(e)}")
         return []
 
-def db_create_assignment(class_code, assignment_name, description, due_date=None, total_points=100):
+def db_create_assignment(class_code, assignment_name, description, due_date, total_points, instructions_encoded_pdf, instructions_file_name):
     """
     Add a new assignment to a course.
 
@@ -287,6 +287,8 @@ def db_create_assignment(class_code, assignment_name, description, due_date=None
     - description: Detailed description of the assignment
     - due_date: Due date for the assignment (ISO format string)
     - total_points: Maximum points for the assignment
+    - instructions_encoded_pdf
+    - instructions_file_name
 
     Returns:
     - None if successful, otherwise an error message string
@@ -307,6 +309,8 @@ def db_create_assignment(class_code, assignment_name, description, due_date=None
         new_assignment = {
             "id": assignment_id,
             "name": assignment_name,
+            "file_name": instructions_file_name,
+            "file_content": instructions_encoded_pdf,
             "description": description,
             "due_date": due_date,
             "total_points": total_points,
@@ -503,7 +507,9 @@ def db_add_submission(user_id, class_code, assignment_id, file_content, file_nam
             "submission_date": datetime.now().isoformat(),
             "grade": None,
             "feedback": None,
-            "graded": False
+            "graded": False,
+            "ai_score": None,
+            "ai_feedback": None
         }
 
         if existing_submission:
@@ -567,3 +573,98 @@ def db_get_submission_by_numeric_id(submission_numeric_id):
     except Exception as e:
         print(f"Error retrieving submission: {str(e)}")
         return None
+
+def db_get_assignment_instructions_file_content(assignment_id):
+    """
+    Retrieve the PDF instructions file content for an assignment.
+
+    Parameters:
+    - assignment_id: The assignment's unique ID (format: "classCode_index")
+
+    Returns:
+    - Tuple of (file_content, file_name) if found, (None, None) otherwise
+    """
+    try:
+        # Extract class code from assignment_id (format: "classCode_index")
+        class_code = assignment_id.split('_')[0]
+
+        courses = db.collection('courses')
+        course_list = list(courses.find({"class_code": class_code}))
+
+        if not course_list:
+            return None, None
+
+        course = course_list[0]
+
+        for assignment in course.get('assignments', []):
+            if assignment.get('id') == assignment_id:
+                return assignment.get('file_content') # , assignment.get('file_name')
+
+        return None, None
+
+    except Exception as e:
+        print(f"Error retrieving instructions: {str(e)}")
+        return None, None
+
+def db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback):
+    """
+    Update a submission with AI-generated feedback and score.
+
+    Parameters:
+    - user_id: Student's user ID
+    - class_code: Course code
+    - assignment_id: Assignment ID
+    - ai_score: Numeric score from AI
+    - ai_feedback: Text feedback from AI
+
+    Returns:
+    - None if successful, error message string otherwise
+    """
+    try:
+        submissions = db.collection('submission')
+        submission_list = list(submissions.find({
+            "user_id": user_id,
+            "class_code": class_code,
+            "assignment_id": assignment_id
+        }))
+
+        if not submission_list:
+            return "Submission not found"
+
+        submission = submission_list[0]
+        submission["ai_score"] = ai_score
+        submission["ai_feedback"] = ai_feedback
+        submissions.update(submission)
+        return None
+
+    except Exception as e:
+        return f"Error updating feedback: {str(e)}"
+
+def db_put_submission_grade(numeric_submission_id, grade, feedback):
+    """
+    Update a submission with instructor-provided grade and feedback.
+
+    Parameters:
+    - numeric_submission_id: The numeric portion of submission ID
+    - grade: Numeric grade value
+    - feedback: Text feedback
+
+    Returns:
+    - None if successful, error message string otherwise
+    """
+    try:
+        full_id = f"submission/{numeric_submission_id}"
+        submissions = db.collection('submission')
+        submission = submissions.get(full_id)
+
+        if not submission:
+            return "Submission not found"
+
+        submission["grade"] = grade
+        submission["feedback"] = feedback
+        submission["graded"] = True
+        submissions.update(submission)
+        return None
+
+    except Exception as e:
+        return f"Error updating grade: {str(e)}"
