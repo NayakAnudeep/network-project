@@ -370,12 +370,14 @@ def upload(request, class_code, assignment_id):
                 print("=============")
 
                 response = requests.post(api_url, files=files, data=data)
-                print("API Response:", response.json(), flush=True)
-                success = response['student_id']
+                json = response.json()
+                print("API Response:", json, flush=True)
+                success = json['student_id']
                 if success:
-                    assignment_id = response['assignment_id']
-                    ai_score = response['total_score']
-                    ai_feedback = response['results']
+                    assignment_id = json['assignment_id']
+                    ai_score = json['total_score']
+                    ai_feedback = json['results']
+                    print(f"CALLING db_put_ai_feedback({user_id}, {class_code}, {assignment_id}, {str(ai_score)}, {ai_feedback})", flush=True)
                     db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback)
                 # on success:
                 # {

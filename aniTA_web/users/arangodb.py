@@ -635,6 +635,7 @@ def db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback
         submission["ai_score"] = ai_score
         submission["ai_feedback"] = ai_feedback
         submissions.update(submission)
+        print("UPDATED SUBMISSION", flush=True)
         return None
 
     except Exception as e:
