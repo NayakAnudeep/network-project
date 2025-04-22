@@ -1,3 +1,4 @@
 .DS_STORE
 **/__pycache__/
 db.sqlite3
+aniTA_web/gcp-deploy/deploy.sh

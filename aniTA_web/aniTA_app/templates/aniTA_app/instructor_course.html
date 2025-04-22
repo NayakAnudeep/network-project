@@ -35,7 +35,7 @@
                     <span>Account</span>
                 </div>
             </div>
-    
+
             <div class="main-content">
                 <div class="header">
                     <div class="header-title">
@@ -44,19 +44,19 @@
                     </div>
                     <a href="{% url 'instructor_course_add_assignment' course_code=course.code %}" class="add-button">Add Assignment</a>
                 </div>
-    
+
                 <div class="assignment-section">
                     <div class="submission-details">
                         <div style="flex: 2; text-align: left;">Name</div>
                         <div style="flex: 1; text-align: right;">Due Date</div>
                     </div>
-    
+
                     <div class="assignment-list">
                         {% if course.assignments %}
                         {% for assignment in course.assignments %}
                         <div class="assignment-item">
                             <div class="assignment-course">{{ assignment.class_code }}</div>
-                            <div class="assignment-name2"><a href="#" target="_self">{{ assignment.name }}</a></div>
+                            <div class="assignment-name2"><a href="{% url 'class_assignment_submissions' course.code assignment.id %}" target="_self">{{ assignment.name }}</a></div>
                             <div class="assignment-points2">
                                 {{ assignment.total_points }} pts
                             </div>

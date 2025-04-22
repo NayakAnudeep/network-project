@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Submissions</title>
+        {% load static %}
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/student-dashboard.css' %}" />
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/instructor-dashboard.css' %}" />
+    </head>
+    <body>
+        <style>
+         ul {
+             list-style: none;
+             padding: 0;
+             margin: 20px;
+         }
+         li {
+             padding: 12px;
+             margin: 5px 0;
+             border-radius: 4px;
+             transition: background 0.2s;
+         }
+         li.graded {
+             background: #e8f5e9;
+         }
+         li.ungraded {
+             background: #fff3e0;
+         }
+         li:hover {
+             background: #bbdefb;
+         }
+         a {
+             text-decoration: none;
+             color: #333;
+             display: block;
+         }
+         .grade-status {
+             float: right;
+         }
+        </style>
+        {% for msg in flash_success %}
+        <p class="flash-succ">{{ msg }}</p>
+        {% endfor %}
+        {% for msg in flash_error %}
+        <p class="flash-err">{{ msg }}</p>
+        {% endfor %}
+
+        <div class="container">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="logo-container">
+                    <div class="logo">AniTA</div>
+                </div>
+                <div class="course-title-header">
+                    <p>{{ course.title }}</p>
+                </div>
+                <div class="nav-menu">
+                    <a href="/instructor-dashboard" class="nav-item active">
+                        <span class="nav-icon">🏠</span>
+                        Back to Dashboard
+                    </a>
+                </div>
+                <form action="{% url 'users:logout' %}" method="post" class="logout-form">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-button">
+                        Logout
+                    </button>
+                </form>
+                <div class="account-section">
+                    <div class="account-icon"></div>
+                    <span>Account</span>
+                </div>
+            </div>
+
+            <ul>
+                {% for sub in submissions %}
+                <li class="{% if sub.graded %}graded{% else %}ungraded{% endif %}">
+                    <a href="{% url 'instructor_grade_submission' numeric_id=sub.numeric_id %}" target="_self">
+                        {{ sub.student_name }}
+                        {% if sub.graded %}
+                        (Graded {{ sub.grade }})
+                        {% else %}
+                        Not Graded
+                        {% endif %}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+    </body>
+</html>

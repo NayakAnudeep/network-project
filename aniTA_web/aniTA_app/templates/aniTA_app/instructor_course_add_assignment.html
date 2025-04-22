@@ -55,13 +55,18 @@
                     <input type="number" id="total_points" name="total_points" value="100" required>
                 </div>
                 <div>
-                    <label for="assignment_file">Assignment File:</label>
-                    <input type="file" id="assignment_file" name="assignment_file" accept=".pdf">
+                    <label for="instructions_file">Instructions File (FOR STUDENTS):</label>
+                    <input type="file" id="instructions_file" name="instructions_file" accept=".pdf" required>
                     <small>Supported formats: PDF</small>
                 </div>
                 <div>
-                    <label for="assignment_file">Solution File:</label>
-                    <input type="file" id="assignment_solution" name="solution_file" accept=".pdf">
+                    <label for="assignment_file">Subject Info File (FOR AI):</label>
+                    <input type="file" id="assignment_file" name="assignment_file" accept=".pdf" required>
+                    <small>Supported formats: PDF</small>
+                </div>
+                <div>
+                    <label for="assignment_file">Answer Key:</label>
+                    <input type="file" id="assignment_solution" name="solution_file" accept=".pdf" required>
                     <small>Supported formats: PDF</small>
                 </div>
                 <button type="submit">Add Assignment</button>

@@ -180,37 +180,6 @@ def student_courses_overview(user_id) -> dict:
     return {"courses": courses_data}
 
 
-# def student_courses_overview(user_id) -> dict:
-#     users = db.collection('users')
-#     users_list = list(users.find({ "user_id" : user_id }))
-#     user_info = users_list[0]
-#     course_codes = user_info.courses
-#     # TODO query the courses collection for the following info
-#     return { "courses": [
-#         {
-#             "code": "ATLS 5214",
-#             "title": "Big Data Architecture",
-#             "instructor": "Greg Greenstreet",
-#             "schedule": "MW 5:05-6:20 PM",
-#             "grade": "100",
-#             "letter_grade": "A",
-#             "n_pending_assignments": 0,
-#             "next_due_date": None,
-#             "id": 42,
-#         },
-#         {
-#             "code": "STAT 5000",
-#             "title": "Statistical Methods and App I",
-#             "instructor": "John Smith",
-#             "schedule": "MWF 10:00-11:00 AM",
-#             "grade": "92",
-#             "letter_grade": "A-",
-#             "n_pending_assignments": 1,
-#             "next_due_date": "March 14",
-#             "id": 42,
-#         }
-#     ] }
-
 def get_pending_assignments(class_code, user_id):
     """
     Get assignments that haven't been submitted by the user yet
@@ -265,8 +234,50 @@ def get_instructor_name(instructor_id):
         return instructor[0].get("username", "Unknown")
     return "Unknown"
 
+def db_get_class_assignment_submissions_metadata(class_code, assignment_id):
+    """
+    Retrieve all submissions for a specific assignment in a class.
 
-def db_create_assignment(class_code, assignment_name, description, due_date=None, total_points=100):
+    Parameters:
+    - class_code: The course code
+    - assignment_id: The assignment ID
+
+    Returns:
+    - List of submission documents with student info
+    """
+    try:
+        submissions = db.collection('submission')
+        submission_list = list(submissions.find({
+            "class_code": class_code,
+            "assignment_id": assignment_id
+        }))
+
+        # Add student names to each submission
+        users = db.collection('users')
+        result = []
+        for sub in submission_list:
+            user = users.get(sub["user_id"])
+            if user:
+                metadata = {
+                    "_id": sub.get("_id"),
+                    "numeric_id": sub.get("_id").split("/")[-1],
+                    "user_id": sub["user_id"],
+                    "student_name": user.get("username", "Unknown"),
+                    "file_name": sub.get("file_name"),
+                    "submission_date": sub.get("submission_date"),
+                    "grade": sub.get("grade"),
+                    "feedback": sub.get("feedback"),
+                    "graded": sub.get("graded")
+                }
+                result.append(metadata)
+
+        return result
+
+    except Exception as e:
+        print(f"Error retrieving submissions: {str(e)}")
+        return []
+
+def db_create_assignment(class_code, assignment_name, description, due_date, total_points, instructions_encoded_pdf, instructions_file_name):
     """
     Add a new assignment to a course.
 
@@ -276,6 +287,8 @@ def db_create_assignment(class_code, assignment_name, description, due_date=None
     - description: Detailed description of the assignment
     - due_date: Due date for the assignment (ISO format string)
     - total_points: Maximum points for the assignment
+    - instructions_encoded_pdf
+    - instructions_file_name
 
     Returns:
     - None if successful, otherwise an error message string
@@ -296,6 +309,8 @@ def db_create_assignment(class_code, assignment_name, description, due_date=None
         new_assignment = {
             "id": assignment_id,
             "name": assignment_name,
+            "file_name": instructions_file_name,
+            "file_content": instructions_encoded_pdf,
             "description": description,
             "due_date": due_date,
             "total_points": total_points,
@@ -332,7 +347,7 @@ def db_get_assignment_id(class_code, assignment_name):
         # Find the assignment by name
         for assignment in course["assignments"]:
             if assignment.get("name") == assignment_name:
-                return assignment.get("_key")  # Return the assignment's key/ID
+                return assignment.get("id")  # Return the assignment's key/ID
 
         return None  # Assignment not found
 
@@ -434,3 +449,223 @@ def db_get_student_assignments(user_id, class_code=None):
 
     except Exception as e:
         return {"error": f"Error retrieving assignments: {str(e)}"}
+
+def db_add_submission(user_id, class_code, assignment_id, file_content, file_name):
+    """
+    Add a new submission for an assignment.
+
+    Parameters:
+    - user_id: The ID of the student submitting the assignment
+    - class_code: The code of the class the assignment belongs to
+    - assignment_id: The ID of the assignment
+    - file_content: The binary content of the PDF file
+    - file_name: The name of the uploaded file
+
+    Returns:
+    - None if successful, otherwise an error message string
+    """
+    try:
+        # Verify the assignment exists
+        courses = db.collection('courses')
+        course_list = list(courses.find({"class_code": class_code}))
+
+        if not course_list:
+            return "Course not found."
+
+        course = course_list[0]
+        assignment_exists = False
+
+        for assignment in course.get('assignments', []):
+            if assignment.get('id') == assignment_id:
+                assignment_exists = True
+                break
+
+        if not assignment_exists:
+            return "Assignment not found."
+
+        # Check if the student is enrolled in this course
+        users = db.collection('users')
+        user = users.get(user_id)
+
+        if not user or class_code not in user.get('courses', []):
+            return "Student is not enrolled in this course."
+
+        # Check if there's an existing submission
+        submissions = db.collection('submission')
+        existing_submission = list(submissions.find({
+            "user_id": user_id,
+            "class_code": class_code,
+            "assignment_id": assignment_id
+        }))
+
+        submission_data = {
+            "user_id": user_id,
+            "class_code": class_code,
+            "assignment_id": assignment_id,
+            "file_name": file_name,
+            "file_content": file_content,  # Store binary content
+            "submission_date": datetime.now().isoformat(),
+            "grade": None,
+            "feedback": None,
+            "graded": False,
+            "ai_score": None,
+            "ai_feedback": None
+        }
+
+        if existing_submission:
+            # Update existing submission
+            submission_doc = existing_submission[0]
+            submission_doc.update(submission_data)
+            submissions.update(submission_doc)
+            return None  # Success
+        else:
+            # Create new submission
+            submissions.insert(submission_data)
+            return None  # Success
+
+    except Exception as e:
+        return f"Error processing submission: {str(e)}"
+
+def db_get_submission(user_id, class_code, assignment_id):
+    """
+    Retrieve a specific submission for a student.
+
+    Parameters:
+    - user_id: The ID of the student
+    - class_code: The code of the class
+    - assignment_id: The ID of the assignment
+
+    Returns:
+    - The submission document if found, otherwise None
+    """
+    try:
+        submissions = db.collection('submission')
+        submission_list = list(submissions.find({
+            "user_id": user_id,
+            "class_code": class_code,
+            "assignment_id": assignment_id
+        }))
+
+        if submission_list:
+            return submission_list[0]
+        else:
+            return None
+
+    except Exception as e:
+        print(f"Error retrieving submission: {str(e)}")
+        return None
+
+def db_get_submission_by_full_id(submission_id):
+    """Retrieve submission by numeric portion of ID"""
+    try:
+        submissions = db.collection('submission')
+        return submissions.get(submission_id)
+    except Exception as e:
+        print(f"Error retrieving submission: {str(e)}")
+        return None
+
+def db_get_submission_by_numeric_id(submission_numeric_id):
+    """Retrieve submission by numeric portion of ID"""
+    try:
+        full_id = f"submission/{submission_numeric_id}"
+        submissions = db.collection('submission')
+        return submissions.get(full_id)
+    except Exception as e:
+        print(f"Error retrieving submission: {str(e)}")
+        return None
+
+def db_get_assignment_instructions_file_content(assignment_id):
+    """
+    Retrieve the PDF instructions file content for an assignment.
+
+    Parameters:
+    - assignment_id: The assignment's unique ID (format: "classCode_index")
+
+    Returns:
+    - Tuple of (file_content, file_name) if found, (None, None) otherwise
+    """
+    try:
+        # Extract class code from assignment_id (format: "classCode_index")
+        class_code = assignment_id.split('_')[0]
+
+        courses = db.collection('courses')
+        course_list = list(courses.find({"class_code": class_code}))
+
+        if not course_list:
+            return None, None
+
+        course = course_list[0]
+
+        for assignment in course.get('assignments', []):
+            if assignment.get('id') == assignment_id:
+                return assignment.get('file_content') # , assignment.get('file_name')
+
+        return None, None
+
+    except Exception as e:
+        print(f"Error retrieving instructions: {str(e)}")
+        return None, None
+
+def db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback):
+    """
+    Update a submission with AI-generated feedback and score.
+
+    Parameters:
+    - user_id: Student's user ID
+    - class_code: Course code
+    - assignment_id: Assignment ID
+    - ai_score: Numeric score from AI
+    - ai_feedback: Text feedback from AI
+
+    Returns:
+    - None if successful, error message string otherwise
+    """
+    try:
+        submissions = db.collection('submission')
+        submission_list = list(submissions.find({
+            "user_id": user_id,
+            "class_code": class_code,
+            "assignment_id": assignment_id
+        }))
+
+        if not submission_list:
+            return "Submission not found"
+
+        submission = submission_list[0]
+        submission["ai_score"] = ai_score
+        submission["ai_feedback"] = ai_feedback
+        submissions.update(submission)
+        print("UPDATED SUBMISSION", flush=True)
+        return None
+
+    except Exception as e:
+        return f"Error updating feedback: {str(e)}"
+
+def db_put_submission_grade(numeric_submission_id, grade, feedback):
+    """
+    Update a submission with instructor-provided grade and feedback.
+
+    Parameters:
+    - numeric_submission_id: The numeric portion of submission ID
+    - grade: Numeric grade value
+    - feedback: Text feedback
+
+    Returns:
+    - None if successful, error message string otherwise
+    """
+    try:
+        full_id = f"submission/{numeric_submission_id}"
+        submissions = db.collection('submission')
+        submission = submissions.get(full_id)
+
+        if not submission:
+            return "Submission not found"
+
+        submission["grade"] = grade
+        submission["feedback"] = feedback
+        submission["graded"] = True
+        submissions.update(submission)
+        return None
+
+    except Exception as e:
+        return f"Error updating grade: {str(e)}"

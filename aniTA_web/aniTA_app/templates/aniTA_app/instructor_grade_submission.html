@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Grade Submission</title>
+        {% load static %}
+        <link rel="stylesheet" type="text/css" href="{% static 'aniTA_app/css/instructor-grade-submission.css' %}" />
+    </head>
+    <body>
+        {% for msg in flash_success %}
+        <p class="flash-succ">{{ msg }}</p>
+        {% endfor %}
+        {% for msg in flash_error %}
+        <p class="flash-err">{{ msg }}</p>
+        {% endfor %}
+
+        <!-- serving context: {'has_previous_submission': True, -->
+        <!-- 'submission_id': 'submission/987', 'file_name': 'CSCI 3202 Project Intermediate Report.pdf'} -->
+        <div class="previous-submission">
+            {% if has_previous_submission %}
+            <h3>Assignment Submitted: {{ file_name }}</h3>
+            <iframe src="{% url 'view_pdf' submission_id=submission_id %}" width="100%" height="500px"></iframe>
+            {% else %}
+            <h3>No submission.</h3>
+            {% endif %}
+        </div>
+        {% if ai_feedback %}
+        <div class="ai-feedback">
+            <h3>AI Feedback</h3>
+            <p>AI Score: {{ ai_score }}</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Question</th>
+                        <th>Score</th>
+                        <th>Justification</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for feedback in ai_feedback %}
+                    <tr>
+                        <td>{{ feedback.question }}</td>
+                        <td>{{ feedback.score }}</td>
+                        <td>{{ feedback.justification }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% if graded %}
+        <div class="previous-grade">
+            <h3>Assignment Graded</h3>
+            {% if previous_grade %}
+            <p><strong>Previous Grade:</strong> {{ previous_grade }}</p>
+            {% endif %}
+            {% if previous_feedback %}
+            <p><strong>Previous Feedback:</strong></p>
+            <p>{{ previous_feedback }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="grading-form">
+            <h3>Grade Submission</h3>
+            <form method="post" action="{% url 'post_grade_submission' numeric_submission_id=submission_id %}">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="grade">Grade (0-100):</label>
+                    <input type="number" id="grade" name="grade" min="0" max="100" required>
+                </div>
+                <div class="form-group">
+                    <label for="feedback">Feedback:</label>
+                    <textarea id="feedback" name="feedback" rows="5" required></textarea>
+                </div>
+                <button type="submit">Submit Grade</button>
+            </form>
+        </div>
+    </body>
+</html>

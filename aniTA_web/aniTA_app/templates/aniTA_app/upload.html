@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>File Upload</title>
+        {% load static %}
+    </head>
+    <style>
+     form {
+         max-width: 400px;
+         margin: 20px auto;
+         padding: 15px;
+         border-radius: 8px;
+         background-color: #f8f9fa;
+         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+         display: flex;
+         flex-direction: column;
+     }
+
+     .file-input {
+         margin-bottom: 12px;
+         padding: 8px;
+         border: 1px solid #ced4da;
+         border-radius: 4px;
+         background-color: white;
+     }
+
+     .upload-button {
+         background-color: #4a6fff;
+         color: white;
+         border: none;
+         border-radius: 4px;
+         padding: 10px 16px;
+         cursor: pointer;
+         font-weight: 500;
+         transition: background-color 0.2s;
+     }
+
+     .upload-button:hover {
+         background-color: #3255db;
+     }
+
+     .upload-button:disabled {
+         background-color: #b4b4b4;
+         cursor: not-allowed;
+     }
+    </style>
+    <body>
+        <div class="Instructions">
+            <h3>Instructions</h3>
+            <iframe src="{% url 'view_assignment_instructions' assignment_id=assignment_id %}" width="100%" height="500px"></iframe>
+        </div>
+
+        {% if has_previous_submission %}
+        <div class="previous-submission">
+            <h3>Previously Submitted: {{ file_name }}</h3>
+            <iframe src="{% url 'view_pdf' submission_id=submission_id %}" width="100%" height="500px"></iframe>
+        </div>
+        {% if graded %}
+        <div class="grading-info" style="margin-top: 20px; padding: 15px; background: #f0f8ff; border-radius: 5px;">
+            <h4>Grading Results</h4>
+            <p><strong>Grade:</strong> {{ grade }}</p>
+            <p><strong>Feedback:</strong> {{ feedback }}</p>
+        </div>
+        {% endif %}
+        {% else %}
+        <form action="{% url 'upload_assignment' class_code=class_code assignment_id=assignment_id %}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div>
+                <label for="file_input">File</label>
+                <input type="file" id="file_input" name="file_input" class="file-input", accept=".pdf">
+                <small>Supported formats: PDF</small>
+            </div>
+            <button type="submit" class="upload-button" id="uploadBtn">Upload</button>
+        </form>
+        {% endif %}
+    </body>
+</html>
