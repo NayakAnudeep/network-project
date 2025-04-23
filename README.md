@@ -10,7 +10,7 @@ AniTA (AI-powered iNteractive Teaching Assistant) is a web application designed 
 
 - Containerization & Deployment: Docker, Google Cloud Platform
 
-- Dev Tools: VSCode, Git, GitHub
+- Dev Tools: VSCode, Google Colab, Git, GitHub
 
 - Project Management: Asana (Agile methodology)
 
@@ -27,6 +27,9 @@ docker-compose up
 
 Once running, visit:
 ``` http://localhost:8000/app```
+
+## DEMO
+Visit: ```http://34.46.43.15:8000/```
 
 ## 👥 Team
 Taahaa Dawe, Duncan Britt, Anudeep Nayak, Jagrati Chauhan, Lilly Nguyen
