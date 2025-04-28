@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>Network Analysis Dashboard</h1>
+    <p>Explore educational network relationships and analytics.</p>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <a href="{% url 'network_dashboard' %}" class="btn btn-primary">Network Dashboard</a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'student_network' %}" class="btn btn-secondary">Student Network</a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'course_network' %}" class="btn btn-info">Course Network</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

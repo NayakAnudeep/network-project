@@ -11,6 +11,8 @@ services:
       - "8000:8000"
     depends_on:
       - arangodb  # Ensure Django starts after ArangoDB
+    env_file:
+      - .env
     environment:
       ARANGO_DB_HOST: "http://arangodb"  # Use service name (NOT "anita_web-arangodb-1")
       ARANGO_DB_PORT: "8529"

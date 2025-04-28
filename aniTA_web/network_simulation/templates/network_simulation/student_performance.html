@@ -1,0 +1,485 @@
+{% extends 'network_simulation/base.html' %}
+
+{% block title %}Student Performance Analysis{% endblock %}
+
+{% block page_title %}Student Performance Analysis{% endblock %}
+
+{% block page_actions %}
+<button type="button" class="btn btn-sm btn-outline-primary me-2" id="refreshData">
+    <i class="fas fa-sync-alt"></i> Refresh Data
+</button>
+<div class="dropdown">
+    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="fas fa-download"></i> Export
+    </button>
+    <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+        <li><a class="dropdown-item" href="#" id="exportCharts">Charts (PNG)</a></li>
+        <li><a class="dropdown-item" href="#" id="exportData">Performance Data (CSV)</a></li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-line me-2"></i> GPA Distribution
+            </div>
+            <div class="card-body">
+                <canvas id="gpaDistributionChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-bar me-2"></i> Course Grade Distribution
+            </div>
+            <div class="card-body">
+                <canvas id="gradeDistributionChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-trophy me-2"></i> Top Performing Students</span>
+                <select class="form-select form-select-sm" style="width: auto;" id="topStudentsFilter">
+                    <option value="overall">Overall GPA</option>
+                    <option value="cs101">Intro to Computer Science</option>
+                    <option value="cs102">Data Structures and Algorithms</option>
+                    <option value="cs103">Database Systems</option>
+                    <option value="cs104">Computer Networks</option>
+                    <option value="cs105">Machine Learning</option>
+                    <option value="cs106">Software Engineering</option>
+                </select>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Student</th>
+                                <th>Year</th>
+                                <th>GPA</th>
+                                <th>Performance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="topStudentsTable">
+                            <tr>
+                                <td colspan="5" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-tasks me-2"></i> Performance by Assessment Type
+            </div>
+            <div class="card-body">
+                <canvas id="assessmentTypeChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-graduation-cap me-2"></i> Year-wise Performance
+            </div>
+            <div class="card-body">
+                <canvas id="yearPerformanceChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Load data when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadPerformanceData();
+        
+        // Set up refresh button
+        document.getElementById('refreshData').addEventListener('click', function() {
+            loadPerformanceData();
+        });
+        
+        // Set up export buttons
+        document.getElementById('exportCharts').addEventListener('click', function() {
+            alert('This feature would export all charts as PNG images.');
+        });
+        
+        document.getElementById('exportData').addEventListener('click', function() {
+            alert('This feature would export performance data as a CSV file.');
+        });
+        
+        // Set up top students filter
+        document.getElementById('topStudentsFilter').addEventListener('change', function() {
+            // This would filter the top students table by the selected course
+            // For now, just show a placeholder message
+            alert('This would filter top students by ' + this.options[this.selectedIndex].text);
+        });
+    });
+    
+    function loadPerformanceData() {
+        fetch('{% url "network_simulation:api_student_performance" %}')
+            .then(response => response.json())
+            .then(data => {
+                // Create GPA distribution chart
+                if (data.gpa_stats) {
+                    createGPADistributionChart(data.gpa_stats);
+                }
+                
+                // Create grade distribution chart
+                if (data.course_grade_stats) {
+                    createGradeDistributionChart(data.course_grade_stats);
+                }
+                
+                // Display top students
+                if (data.top_students) {
+                    displayTopStudents(data.top_students);
+                }
+                
+                // Create assessment type chart
+                if (data.assessment_type_stats) {
+                    createAssessmentTypeChart(data.assessment_type_stats);
+                }
+                
+                // Create year performance chart (simulated since we don't have this data)
+                createYearPerformanceChart();
+            })
+            .catch(error => {
+                console.error('Error loading performance data:', error);
+                // Display error message in all chart containers
+                displayErrorInCharts();
+            });
+    }
+    
+    function displayErrorInCharts() {
+        const chartIds = [
+            'gpaDistributionChart',
+            'gradeDistributionChart',
+            'assessmentTypeChart',
+            'yearPerformanceChart'
+        ];
+        
+        chartIds.forEach(id => {
+            const canvas = document.getElementById(id);
+            const container = canvas.parentElement;
+            
+            canvas.style.display = 'none';
+            container.innerHTML += `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error loading chart data. Please try refreshing the page.
+                </div>
+            `;
+        });
+        
+        // Display error in top students table
+        document.getElementById('topStudentsTable').innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error loading student data. Please try refreshing the page.
+                </td>
+            </tr>
+        `;
+    }
+    
+    function createGPADistributionChart(gpaStats) {
+        const ctx = document.getElementById('gpaDistributionChart').getContext('2d');
+        
+        // Calculate GPA distribution
+        // For this demo, we'll create a simplified distribution using the quartiles
+        const labels = ['2.0-2.5', '2.5-3.0', '3.0-3.5', '3.5-4.0'];
+        const data = [15, 25, 35, 25]; // Mock distribution percentages
+        
+        // Create chart
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(255, 159, 64, 0.7)',
+                        'rgba(255, 205, 86, 0.7)',
+                        'rgba(75, 192, 192, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(255, 159, 64, 1)',
+                        'rgba(255, 205, 86, 1)',
+                        'rgba(75, 192, 192, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `GPA Distribution (Min: ${gpaStats.min.toFixed(2)}, Max: ${gpaStats.max.toFixed(2)}, Avg: ${gpaStats.mean.toFixed(2)})`
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.label}: ${context.raw}% of students`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function createGradeDistributionChart(courseGradeStats) {
+        const ctx = document.getElementById('gradeDistributionChart').getContext('2d');
+        
+        // Prepare data for chart
+        const labels = ['A', 'B', 'C', 'D', 'F'];
+        const datasets = [];
+        
+        // Get list of courses
+        const courses = Object.keys(courseGradeStats);
+        
+        // Create a dataset for each course
+        courses.forEach((course, index) => {
+            const stats = courseGradeStats[course];
+            
+            // Skip if no distribution data
+            if (!stats.distribution) return;
+            
+            // Get grade counts
+            const data = [
+                stats.distribution.A,
+                stats.distribution.B,
+                stats.distribution.C,
+                stats.distribution.D,
+                stats.distribution.F
+            ];
+            
+            // Create a color for this course
+            const hue = index * (360 / courses.length);
+            const color = `hsl(${hue}, 70%, 60%)`;
+            
+            datasets.push({
+                label: course,
+                data: data,
+                backgroundColor: `${color}80`, // Add transparency
+                borderColor: color,
+                borderWidth: 1
+            });
+        });
+        
+        // Create chart
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Number of Students'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Grade Distribution by Course'
+                    }
+                }
+            }
+        });
+    }
+    
+    function displayTopStudents(students) {
+        const container = document.getElementById('topStudentsTable');
+        
+        if (!students || students.length === 0) {
+            container.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center">No student data available.</td>
+                </tr>
+            `;
+            return;
+        }
+        
+        let html = '';
+        
+        students.forEach((student, index) => {
+            // Calculate performance visual (progress bar)
+            const performancePercentage = student.gpa * 25; // Convert 4.0 scale to percentage
+            
+            let performanceClass = 'bg-success';
+            if (student.gpa < 3.0) performanceClass = 'bg-warning';
+            if (student.gpa < 2.0) performanceClass = 'bg-danger';
+            
+            html += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>
+                        <a href="{% url 'network_simulation:dashboard' %}student/${student.id}/">
+                            ${student.name}
+                        </a>
+                    </td>
+                    <td>${student.year}</td>
+                    <td>${student.gpa.toFixed(2)}</td>
+                    <td>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar ${performanceClass}" role="progressbar" 
+                                style="width: ${performancePercentage}%;" 
+                                aria-valuenow="${performancePercentage}" aria-valuemin="0" aria-valuemax="100">
+                                ${student.gpa.toFixed(2)}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function createAssessmentTypeChart(typeStats) {
+        const ctx = document.getElementById('assessmentTypeChart').getContext('2d');
+        
+        // Prepare data for chart
+        const labels = Object.keys(typeStats);
+        const avgScores = labels.map(type => typeStats[type].mean);
+        const counts = labels.map(type => typeStats[type].count);
+        
+        // Calculate the maximum count for scaling the bubble size
+        const maxCount = Math.max(...counts);
+        
+        // Create dataset for bubble chart
+        const data = labels.map((type, index) => ({
+            x: index,
+            y: avgScores[index],
+            r: Math.max(5, Math.sqrt(counts[index] / maxCount) * 20) // Scale bubble size
+        }));
+        
+        // Create chart
+        new Chart(ctx, {
+            type: 'bubble',
+            data: {
+                datasets: [{
+                    label: 'Assessment Types',
+                    data: data,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        type: 'category',
+                        labels: labels,
+                        title: {
+                            display: true,
+                            text: 'Assessment Type'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Average Score'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Performance by Assessment Type (bubble size = number of assessments)'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const type = labels[context.raw.x];
+                                return `${type}: ${avgScores[context.raw.x].toFixed(1)} avg score, ${counts[context.raw.x]} assessments`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function createYearPerformanceChart() {
+        const ctx = document.getElementById('yearPerformanceChart').getContext('2d');
+        
+        // Simulated data for year-wise performance
+        const labels = ['Freshman', 'Sophomore', 'Junior', 'Senior'];
+        const gpaData = [3.1, 3.3, 3.5, 3.7]; // Mock average GPA by year
+        
+        // Create chart
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Average GPA',
+                    data: gpaData,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+                    pointRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        min: 2.0,
+                        max: 4.0,
+                        title: {
+                            display: true,
+                            text: 'Average GPA'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Average GPA by Student Year'
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

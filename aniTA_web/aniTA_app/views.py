@@ -3,11 +3,13 @@ from django.template import loader
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from users.arangodb import *
+from users.material_db import *
 import requests
 import io # soon to be unused
 import os
 import tempfile
 import base64
+from .claude_service import ClaudeGradingService
 
 # Create your views here.
 def index(request):
@@ -222,12 +224,48 @@ def add_assignment(request):
         instructions_file = request.FILES.get('instructions_file')
         assignment_file = request.FILES.get('assignment_file')
         solution_file = request.FILES.get('solution_file')
+        rubric_file = request.FILES.get('rubric_file')  # New rubric file upload
 
         # Convert total_points to integer
         try:
             total_points = int(total_points)
         except (ValueError, TypeError):
             total_points = 100
+
+        # Process the rubric file if provided
+        rubric_items = []
+        if rubric_file:
+            try:
+                # Save rubric file to a temporary file
+                with tempfile.NamedTemporaryFile(suffix='.txt', mode='wb+') as rubric_temp:
+                    for chunk in rubric_file.chunks():
+                        rubric_temp.write(chunk)
+                    rubric_temp.flush()
+                    
+                    # Read and parse the rubric file
+                    with open(rubric_temp.name, 'r') as f:
+                        rubric_text = f.read()
+                        
+                        # Simple parsing for rubric items (format: Criteria - Points: Description)
+                        for line in rubric_text.splitlines():
+                            if line.strip():
+                                try:
+                                    criteria, rest = line.split('-', 1)
+                                    points_part, description = rest.split(':', 1)
+                                    points = float(points_part.replace('Points', '').strip())
+                                    
+                                    rubric_items.append({
+                                        "criteria": criteria.strip(),
+                                        "points": points,
+                                        "description": description.strip()
+                                    })
+                                except Exception as e:
+                                    print(f"Error parsing rubric line: {line}. Error: {e}")
+            except Exception as e:
+                print(f"Error processing rubric file: {e}")
+                if 'flash_error' not in request.session:
+                    request.session['flash_error'] = []
+                request.session['flash_error'].append(f"Could not process rubric file: {e}")
 
         with tempfile.NamedTemporaryFile(suffix='.pdf') as instructions_temp:
             for chunk in instructions_file.chunks():
@@ -252,8 +290,9 @@ def add_assignment(request):
         if assignment_file and solution_file:
             assignment_id = db_get_assignment_id(class_code, assignment_name)
             assert assignment_id
-            # api_url = "https://ai-context-445405667866.us-central1.run.app/build-context/"
-            api_url = "https://ai-vector-search-assessment-445405667866.us-central1.run.app/build-context/"
+
+            # Initialize Claude service for materials processing
+            claude_service = ClaudeGradingService()
 
             # Use context managers for temporary files
             with tempfile.NamedTemporaryFile(suffix='.pdf') as assignment_temp, \
@@ -268,40 +307,42 @@ def add_assignment(request):
                     solution_temp.write(chunk)
                 solution_temp.flush()
 
-                # Use the files for the API request
-                files = {
-                    'module_pdf': open(assignment_temp.name, 'rb'),
-                    'sample_solution_pdf': open(solution_temp.name, 'rb')
-                }
-
-                data = {
-                    'class_code': class_code,
-                    'assignment_id': assignment_id
-                }
-
+                # Process course materials with Claude
                 try:
-                    # API request
-                    response = requests.post(api_url, files=files, data=data)
+                    # Process assignment file
+                    material_result = claude_service.process_course_material(
+                        class_code=class_code,
+                        assignment_id=assignment_id,
+                        pdf_path=assignment_temp.name,
+                        rubric_items=rubric_items
+                    )
 
-                    # Process response
-                    if response.status_code == 200:
-                        api_result = response.json()
-                        if api_result.get('status') == 'success':
-                            if 'flash_success' not in request.session:
-                                request.session['flash_success'] = []
-                            request.session['flash_success'].append("Assignment created successfully and context built.")
-                        else:
-                            if 'flash_error' not in request.session:
-                                request.session['flash_error'] = []
-                            request.session['flash_error'].append(f"Created assignment but failed to build context: {api_result.get('message')}")
+                    # Process solution file for additional context
+                    solution_result = claude_service.process_course_material(
+                        class_code=class_code,
+                        assignment_id=f"{assignment_id}_solution",
+                        pdf_path=solution_temp.name
+                    )
+
+                    if material_result.get("success") and solution_result.get("success"):
+                        print(f"Successfully processed course materials and created embeddings")
+                        print(f"Extracted {material_result.get('questions_count')} questions")
+                        print(f"Created {material_result.get('chunks_count')} chunks for vector search")
+
+                        if 'flash_success' not in request.session:
+                            request.session['flash_success'] = []
+                        request.session['flash_success'].append("Assignment created successfully with materials and vector embeddings for AI grading.")
                     else:
+                        print(f"Error processing materials: {material_result.get('error')} / {solution_result.get('error')}")
                         if 'flash_error' not in request.session:
                             request.session['flash_error'] = []
-                        request.session['flash_error'].append(f"Created assignment but failed to build context: API returned status {response.status_code}")
-                finally:
-                    # Close the file handlers opened for the request
-                    for f in files.values():
-                        f.close()
+                        request.session['flash_error'].append(f"Created assignment but failed to process materials for AI grading.")
+
+                except Exception as e:
+                    print(f"Error processing materials with Claude: {e}")
+                    if 'flash_error' not in request.session:
+                        request.session['flash_error'] = []
+                    request.session['flash_error'].append(f"Created assignment but encountered an error processing materials: {str(e)}")
 
         return redirect('/instructor-dashboard')
 
@@ -355,30 +396,31 @@ def upload(request, class_code, assignment_id):
                 request.session['flash_error'].append(f"Could not add submission: {err}")
                 return redirect('/dashboard')
 
-            # Call grading API
+            # Call Claude for grading
             try:
-                api_url = "https://grading-api-445405667866.us-central1.run.app/grade-context/"
-                files = {'student_pdf': open(submission_temp.name, 'rb')}
-                data = {
-                    'student_id': str(user_id),
-                    'class_code': class_code,
-                    'assignment_id': assignment_id,
-                    'total_score': 10.0
-                }
-                print("=============")
-                print("sending to API:", data, flush=True)
-                print("=============")
-
-                response = requests.post(api_url, files=files, data=data)
-                json = response.json()
-                print("API Response:", json, flush=True)
-                success = json['student_id']
-                if success:
-                    assignment_id = json['assignment_id']
-                    ai_score = json['total_score']
-                    ai_feedback = json['results']
+                # Initialize Claude service
+                claude_service = ClaudeGradingService()
+                
+                # Grade the submission using Claude
+                grading_result = claude_service.grade_from_pdf_data(
+                    student_pdf_path=submission_temp.name,
+                    class_code=class_code,
+                    assignment_id=assignment_id
+                )
+                
+                # Add student_id to the result
+                grading_result["student_id"] = str(user_id)
+                
+                print("Claude Grading Result:", grading_result, flush=True)
+                
+                # Update the submission with AI feedback
+                if "error" not in grading_result:
+                    ai_score = grading_result["total_score"]
+                    ai_feedback = grading_result["results"]
                     print(f"CALLING db_put_ai_feedback({user_id}, {class_code}, {assignment_id}, {str(ai_score)}, {ai_feedback})", flush=True)
                     db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback)
+                else:
+                    print("Error in Claude grading:", grading_result["error"], flush=True)
                 # on success:
                 # {
                 #     "student_id": student_id,
@@ -427,6 +469,113 @@ def upload(request, class_code, assignment_id):
 
     else:
         return redirect('/')
+    
+def upload(request, class_code, assignment_id):
+    if request.method == "POST":
+        submission = request.FILES.get('file_input')
+        user_id = request.session.get('user_id')
+
+        if not submission:
+            if 'flash_error' not in request.session:
+                request.session['flash_error'] = []
+            request.session['flash_error'].append("Could not add submission. Expected file.")
+            return redirect('/dashboard')
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf') as submission_temp:
+            for chunk in submission.chunks():
+                submission_temp.write(chunk)
+            submission_temp.flush()
+
+            with open(submission_temp.name, 'rb') as submission_pdf:
+                encoded_pdf = base64.b64encode(submission_pdf.read()).decode('utf-8')
+
+            # Add submission to DB
+            err = db_add_submission(user_id, class_code, assignment_id, encoded_pdf, submission.name)
+            if err:
+                if 'flash_error' not in request.session:
+                    request.session['flash_error'] = []
+                request.session['flash_error'].append(f"Could not add submission: {err}")
+                return redirect('/dashboard')
+
+            # Grade the submission using Claude
+            try:
+                claude_service = ClaudeGradingService()
+                grading_result = claude_service.grade_from_pdf_data(
+                    student_pdf_path=submission_temp.name,
+                    class_code=class_code,
+                    assignment_id=assignment_id
+                )
+
+                # Add student_id manually
+                grading_result["student_id"] = str(user_id)
+
+                if "error" not in grading_result:
+                    ai_score = grading_result["total_score"]
+                    ai_feedback = grading_result["results"]
+
+                    # Update submission with AI feedback
+                    db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback)
+
+                    # Now also store Mistake nodes and edges
+                    # Build rubric mapping
+                    rubrics = db.collection('rubrics')
+                    rubric_docs = list(rubrics.find({"assignment_id": assignment_id}))
+                    rubric_mapping = {}
+                    if rubric_docs:
+                        for item in rubric_docs[0].get("items", []):
+                            rubric_mapping[item["criteria"]] = rubric_docs[0]["_id"]
+
+                    # Get submission numeric id
+                    user_sub = db_get_submission(user_id, class_code, assignment_id)
+                    if user_sub:
+                        submission_id = user_sub["_id"].split('/')[-1]
+
+                        for result_item in grading_result.get("results", []):
+                            store_mistake_and_edges(
+                                student_id=f"users/{user_id}",
+                                submission_id=submission_id,
+                                assignment_id=assignment_id,
+                                result_item=result_item,
+                                relevant_chunks=grading_result.get("relevant_chunks", []),
+                                rubric_mapping=rubric_mapping
+                            )
+
+                else:
+                    print("Error in Claude grading:", grading_result["error"], flush=True)
+
+            except Exception as e:
+                print("API Error:", str(e))
+
+        if 'flash_success' not in request.session:
+            request.session['flash_success'] = []
+        request.session['flash_success'].append("Submitted assignment successfully.")
+        return redirect('/dashboard')
+
+    elif request.method == "GET":
+        template = loader.get_template("aniTA_app/upload.html")
+        user_id = request.session.get('user_id')
+        previous_submission = db_get_submission(user_id, class_code, assignment_id)
+
+        context = {
+            "class_code": class_code,
+            "assignment_id": assignment_id,
+            "has_previous_submission": previous_submission is not None
+        }
+
+        if previous_submission:
+            full_id = previous_submission.get("_id")
+            numeric_id = full_id.split('/')[1] if '/' in full_id else full_id
+            context["submission_id"] = numeric_id
+            context["file_name"] = previous_submission.get("file_name")
+            context["graded"] = previous_submission.get("graded")
+            context["grade"] = previous_submission.get("grade")
+            context["feedback"] = previous_submission.get("feedback")
+
+        return HttpResponse(template.render(context, request))
+
+    else:
+        return redirect('/')
+
 
 def view_pdf(request, submission_id):
     # Get submission from DB

@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'aniTA_app',
     'users',
+    'network_simulation'
 ]
 
 
@@ -50,6 +51,9 @@ ARANGO_DB = {
     'PASSWORD': os.getenv("ARANGO_DB_PASSWORD", "aitaArango"),
     'DATABASE': os.getenv("ARANGO_DB_NAME", "aita_db")
 }
+
+# Claude API settings
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

@@ -23,7 +23,20 @@ db = client.db(settings.ARANGO_DB['DATABASE'],
 # ┌─────────────────┐
 # │ Database Tables │
 # └─────────────────┘
-# Check if the 'users' collection exists, create if missing
+# Collections
+if not db.has_collection('sections'):
+    db.create_collection('sections')
+
+if not db.has_collection('related_to'):
+    db.create_collection('related_to', edge=True)
+
+
+if not db.has_collection('mistakes'):
+    db.create_collection('mistakes')
+
+if not db.has_collection('relevant_chunks'):
+    db.create_collection('relevant_chunks')
+
 if not db.has_collection('users'):
     db.create_collection('users')
 
@@ -32,6 +45,40 @@ if not db.has_collection('submission'):
 
 if not db.has_collection('courses'):
     db.create_collection('courses')
+
+if not db.has_collection('course_materials'):
+    db.create_collection('course_materials')
+
+if not db.has_collection('rubrics'):
+    db.create_collection('rubrics')
+
+if not db.has_collection('material_vectors'):
+    db.create_collection('material_vectors')
+
+if not db.has_collection('material_questions'):
+    db.create_collection('material_questions')
+
+# Edges
+if not db.has_collection('has_feedback_on'):
+    db.create_collection('has_feedback_on', edge=True)
+
+if not db.has_collection('affects_criteria'):
+    db.create_collection('affects_criteria', edge=True)
+
+if not db.has_collection('made_mistake'):
+    db.create_collection('made_mistake', edge=True)
+
+if not db.has_collection('related_to'):
+    db.create_collection('related_to', edge=True)
+
+if not db.has_collection('has_rubric'):
+    db.create_collection('has_rubric', edge=True)
+
+if not db.has_collection('has_material'):
+    db.create_collection('has_material', edge=True)
+
+if not db.has_collection('has_question'):
+    db.create_collection('has_question', edge=True)
 # ┌───────────────────┐
 # │ Updates & Queries │
 # └───────────────────┘
@@ -669,3 +716,6 @@ def db_put_submission_grade(numeric_submission_id, grade, feedback):
 
     except Exception as e:
         return f"Error updating grade: {str(e)}"
+    
+
+

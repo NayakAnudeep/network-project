@@ -1,0 +1,287 @@
+{% extends 'network_simulation/base.html' %}
+
+{% block title %}Student: {{ student.name }}{% endblock %}
+
+{% block page_title %}Student Profile: {{ student.name }}{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'network_simulation:student_performance' %}" class="btn btn-sm btn-outline-secondary me-2">
+    <i class="fas fa-arrow-left"></i> Back to Performance
+</a>
+<div class="dropdown">
+    <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="fas fa-download"></i> Export
+    </button>
+    <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+        <li><a class="dropdown-item" href="#" id="exportProfile">Student Profile (PDF)</a></li>
+        <li><a class="dropdown-item" href="#" id="exportTranscript">Academic Transcript (PDF)</a></li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-user-graduate me-2"></i> Student Information
+            </div>
+            <div class="card-body">
+                <h4 class="card-title">{{ student.name }}</h4>
+                <h6 class="card-subtitle mb-3 text-muted">ID: {{ student.id }}</h6>
+                
+                <ul class="list-group list-group-flush mb-3">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Year:</span>
+                        <strong>{{ student.year }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Major:</span>
+                        <strong>{{ student.major }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>GPA:</span>
+                        <strong>{{ student.gpa }}</strong>
+                    </li>
+                </ul>
+                
+                <div class="d-grid">
+                    <button class="btn btn-outline-primary" disabled>
+                        <i class="fas fa-envelope me-2"></i> Contact Student
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-line me-2"></i> Academic Performance
+            </div>
+            <div class="card-body">
+                <canvas id="performanceChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-book me-2"></i> Enrolled Courses
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Course</th>
+                                <th>Term</th>
+                                <th>Year</th>
+                                <th>Final Grade</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for course in courses %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'network_simulation:dashboard' %}course/{{ course.id }}/">
+                                        {{ course.name }}
+                                    </a>
+                                </td>
+                                <td>{{ course.term }}</td>
+                                <td>{{ course.year }}</td>
+                                <td>{{ course.final_grade|floatformat:1 }}</td>
+                                <td>
+                                    {% if course.final_grade >= 90 %}
+                                    <span class="badge bg-success">Excellent</span>
+                                    {% elif course.final_grade >= 80 %}
+                                    <span class="badge bg-primary">Good</span>
+                                    {% elif course.final_grade >= 70 %}
+                                    <span class="badge bg-warning">Average</span>
+                                    {% elif course.final_grade >= 60 %}
+                                    <span class="badge bg-danger">Poor</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">N/A</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center">No course enrollment data available.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-tasks me-2"></i> Recent Assessments
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Course</th>
+                                <th>Type</th>
+                                <th>Date</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for assessment in assessments %}
+                            <tr>
+                                <td>{{ assessment.course }}</td>
+                                <td>{{ assessment.type }}</td>
+                                <td>{{ assessment.date }}</td>
+                                <td>{{ assessment.score }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">No assessment data available.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chalkboard-teacher me-2"></i> Instructor Interactions
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Instructor</th>
+                                <th>Avg. Score</th>
+                                <th>Performance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for instructor in instructor_avg_scores %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'network_simulation:dashboard' %}instructor/{{ instructor.id }}/">
+                                        {{ instructor.name }}
+                                    </a>
+                                </td>
+                                <td>{{ instructor.avg_score }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar 
+                                            {% if instructor.avg_score >= 90 %}bg-success
+                                            {% elif instructor.avg_score >= 80 %}bg-primary
+                                            {% elif instructor.avg_score >= 70 %}bg-warning
+                                            {% else %}bg-danger{% endif %}" 
+                                            role="progressbar" 
+                                            style="width: {{ instructor.avg_score }}%;" 
+                                            aria-valuenow="{{ instructor.avg_score }}" 
+                                            aria-valuemin="0" 
+                                            aria-valuemax="100">
+                                            {{ instructor.avg_score }}%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center">No instructor data available.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Export buttons functionality
+        document.getElementById('exportProfile').addEventListener('click', function() {
+            alert('This feature would export the student profile as a PDF.');
+        });
+        
+        document.getElementById('exportTranscript').addEventListener('click', function() {
+            alert('This feature would export the academic transcript as a PDF.');
+        });
+        
+        // Create performance chart
+        createPerformanceChart();
+    });
+    
+    function createPerformanceChart() {
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        
+        // Get course data from the table
+        const courseRows = document.querySelectorAll('table tbody tr');
+        const courseNames = [];
+        const courseGrades = [];
+        
+        courseRows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 4) {
+                const courseName = cells[0].textContent.trim();
+                const courseGrade = parseFloat(cells[3].textContent.trim());
+                
+                if (!isNaN(courseGrade)) {
+                    courseNames.push(courseName);
+                    courseGrades.push(courseGrade);
+                }
+            }
+        });
+        
+        // Create chart
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: courseNames,
+                datasets: [{
+                    label: 'Course Grades',
+                    data: courseGrades,
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            stepSize: 20
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Course Performance Profile'
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

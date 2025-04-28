@@ -2,3 +2,11 @@ Django==5.1
 python-arango
 bcrypt
 requests
+anthropic
+pdfplumber
+langchain
+langchain-community
+sentence-transformers
+numpy
+transformers
+matplotlib>=3.5.0
