@@ -16,8 +16,10 @@ def index(request):
     if request.session.get('user_id'):
         role = request.session.get('role')
         if role == 'student':
+            # Provide link to both regular dashboard and analytics dashboard
             return redirect('/dashboard')
         elif role == 'instructor':
+            # Provide link to both regular dashboard and analytics dashboard
             return redirect('/instructor-dashboard')
         else:
             request.session.flush()

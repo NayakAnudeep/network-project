@@ -5,6 +5,6 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('network/', include('network_simulation.urls')),  # Network analysis dashboard
+    # Redirect to aniTA_server URLs which are the actual application URLs
+    path('', include('aniTA_server.urls')),
 ]

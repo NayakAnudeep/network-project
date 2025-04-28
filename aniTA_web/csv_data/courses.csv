@@ -1,0 +1,7 @@
+id,name,instructor_ids,credits
+CS101,Introduction to Computer Science,"I583,I144",3
+CS102,Data Structures and Algorithms,I712,4
+CS103,Database Systems,I602,4
+CS104,Computer Networks,"I596,I583,I327",4
+CS105,Machine Learning,"I712,I181",4
+CS106,Software Engineering,I180,4

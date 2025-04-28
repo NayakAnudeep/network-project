@@ -1,6 +1,3 @@
-
-version: '3.8'
-
 services:
   web:
     build: .
@@ -15,7 +12,7 @@ services:
       - .env
     environment:
       ARANGO_DB_HOST: "http://arangodb"  # Use service name (NOT "anita_web-arangodb-1")
-      ARANGO_DB_PORT: "8529"
+      ARANGO_DB_PORT: "8529"  # This is internal port within container
       ARANGO_DB_USER: "root"
       ARANGO_DB_PASSWORD: "aitaArango"
       ARANGO_DB_NAME: "aita_db"
@@ -24,7 +21,7 @@ services:
     image: arangodb:3.11
     restart: always
     ports:
-      - "8529:8529"
+      - "8530:8529"
     environment:
       ARANGO_ROOT_PASSWORD: "aitaArango"
     volumes:
@@ -32,4 +29,3 @@ services:
 
 volumes:
   arangodb_data:
-

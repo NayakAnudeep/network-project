@@ -4,6 +4,12 @@
 
 {% block page_title %}Student Profile: {{ student.name }}{% endblock %}
 
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'network_simulation:dashboard' %}">Dashboard</a></li>
+<li class="breadcrumb-item"><a href="{% url 'network_simulation:student_performance' %}">Student Performance</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ student.name }}</li>
+{% endblock %}
+
 {% block page_actions %}
 <a href="{% url 'network_simulation:student_performance' %}" class="btn btn-sm btn-outline-secondary me-2">
     <i class="fas fa-arrow-left"></i> Back to Performance
@@ -87,7 +93,7 @@
                             {% for course in courses %}
                             <tr>
                                 <td>
-                                    <a href="{% url 'network_simulation:dashboard' %}course/{{ course.id }}/">
+                                    <a href="{% url 'network_simulation:course_detail' course_id=course.id %}">
                                         {{ course.name }}
                                     </a>
                                 </td>
@@ -176,7 +182,7 @@
                             {% for instructor in instructor_avg_scores %}
                             <tr>
                                 <td>
-                                    <a href="{% url 'network_simulation:dashboard' %}instructor/{{ instructor.id }}/">
+                                    <a href="{% url 'network_simulation:instructor_detail' instructor_id=instructor.id %}">
                                         {{ instructor.name }}
                                     </a>
                                 </td>

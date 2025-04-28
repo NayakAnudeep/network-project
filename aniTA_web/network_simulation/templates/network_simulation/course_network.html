@@ -4,6 +4,11 @@
 
 {% block page_title %}Course Network Analysis{% endblock %}
 
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'network_simulation:dashboard' %}">Dashboard</a></li>
+<li class="breadcrumb-item active" aria-current="page">Course Network</li>
+{% endblock %}
+
 {% block page_actions %}
 <button type="button" class="btn btn-sm btn-outline-primary me-2" id="refreshData">
     <i class="fas fa-sync-alt"></i> Refresh Data
@@ -190,6 +195,19 @@
                 if (data.network_graph) {
                     const container = document.getElementById('networkGraph');
                     container.innerHTML = `<img src="data:image/png;base64,${data.network_graph}" alt="Course Network" class="img-fluid">`;
+                } else {
+                    // If there's no network_graph, create a visualization with the nodes and links
+                    const nodes = data.nodes || [];
+                    const links = data.links || [];
+                    
+                    // Create a simple visualization message
+                    const container = document.getElementById('networkGraph');
+                    container.innerHTML = `
+                        <div class="alert alert-info">
+                            <p>Course network visualization with ${nodes.length} nodes and ${links.length} links</p>
+                            <p>Nodes: ${nodes.map(n => n.name).join(', ').slice(0, 100)}...</p>
+                        </div>
+                    `;
                 }
                 
                 // Display network metrics
@@ -436,12 +454,12 @@
             html += `
                 <tr>
                     <td>
-                        <a href="{% url 'network_simulation:dashboard' %}course/${connection.course1_id}/">
+                        <a href="javascript:void(0);" onclick="alert('Course detail would link to ' + connection.course1_id)">
                             ${connection.course1_name}
                         </a>
                     </td>
                     <td>
-                        <a href="{% url 'network_simulation:dashboard' %}course/${connection.course2_id}/">
+                        <a href="javascript:void(0);" onclick="alert('Course detail would link to ' + connection.course2_id)">
                             ${connection.course2_name}
                         </a>
                     </td>

@@ -1,21 +1,149 @@
-{% extends 'base.html' %}
+{% extends 'network_simulation/base.html' %}
+
+{% block title %}Network Dashboard{% endblock %}
+
+{% block page_title %}Network Analytics Dashboard{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+{% endblock %}
+
+{% block page_actions %}
+<button type="button" class="btn btn-sm btn-outline-primary me-2" id="refreshData">
+    <i class="fas fa-sync-alt"></i> Refresh Data
+</button>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1>Network Dashboard</h1>
-    
-    <div class="row">
-        <div class="col-md-6">
-            <h2>Network Statistics</h2>
-            <ul>
-                <li>Total Nodes: {{ node_count }}</li>
-                <li>Total Edges: {{ edge_count }}</li>
-            </ul>
-        </div>
-        <div class="col-md-6">
-            <h2>Network Visualization</h2>
-            <img src="data:image/png;base64,{{ graph_image }}" alt="Network Graph" class="img-fluid">
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            This dashboard provides an overview of educational network metrics and visualizations.
+            Use the sidebar to navigate to specific network views.
         </div>
     </div>
 </div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-network me-2"></i> Network Statistics
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Total Nodes:</span>
+                        <strong>{{ node_count }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Total Edges:</span>
+                        <strong>{{ edge_count }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Students:</span>
+                        <strong>{{ student_count }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Instructors:</span>
+                        <strong>{{ instructor_count }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Courses:</span>
+                        <strong>{{ course_count }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Assessments:</span>
+                        <strong>{{ assessment_count }}</strong>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-project-diagram me-2"></i> Network Visualization
+            </div>
+            <div class="card-body">
+                {% if error_message %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    {{ error_message }}
+                </div>
+                {% elif graph_image %}
+                <img src="data:image/png;base64,{{ graph_image }}" alt="Network Graph" class="img-fluid">
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No network graph data available.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-users me-2"></i> Students & Instructors
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iZ3JhZCIgY3g9IjUwJSIgY3k9IjUwJSIgcj0iNTAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6I2ViZjhmZjsiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6I2YyZjVmYTsiIC8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogIDwvZGVmcz4KCiAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjI1MCIgaGVpZ2h0PSIxNTAiIGZpbGw9InVybCgjZ3JhZCkiLz4KCiAgPCEtLSBUZWFjaGVyIE5vZGVzIC0tPgogIDxjaXJjbGUgY3g9IjEyNSIgY3k9IjYwIiByPSIyNSIgZmlsbD0iIzU2NjJFMSIvPgogIDx0ZXh0IHg9IjEyNSIgeT0iNjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBkeT0iNCI+VGVhY2hlcjwvdGV4dD4KCiAgPCEtLSBTdHVkZW50IE5vZGVzIC0tPgogIDxjaXJjbGUgY3g9IjYwIiBjeT0iMTEwIiByPSIxNSIgZmlsbD0iIzQ4QkZFMyIvPgogIDx0ZXh0IHg9IjYwIiB5PSIxMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBkeT0iNCIgZm9udC1zaXplPSI5cHgiPlMxPC90ZXh0PgoKICA8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMzAiIHI9IjE1IiBmaWxsPSIjNDhCRkUzIi8+CiAgPHRleHQgeD0iMTAwIiB5PSIxMzAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBkeT0iNCIgZm9udC1zaXplPSI5cHgiPlMyPC90ZXh0PgoKICA8Y2lyY2xlIGN4PSIxNTAiIGN5PSIxMzAiIHI9IjE1IiBmaWxsPSIjNDhCRkUzIi8+CiAgPHRleHQgeD0iMTUwIiB5PSIxMzAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBkeT0iNCIgZm9udC1zaXplPSI5cHgiPlMzPC90ZXh0PgoKICA8Y2lyY2xlIGN4PSIxOTAiIGN5PSIxMTAiIHI9IjE1IiBmaWxsPSIjNDhCRkUzIi8+CiAgPHRleHQgeD0iMTkwIiB5PSIxMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBkeT0iNCIgZm9udC1zaXplPSI5cHgiPlM0PC90ZXh0PgoKICA8IS0tIENvbm5lY3Rpb25zIC0tPgogIDxsaW5lIHgxPSIxMjUiIHkxPSI2MCIgeDI9IjYwIiB5Mj0iMTEwIiBzdHJva2U9IiM4ODg4ODgiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxsaW5lIHgxPSIxMjUiIHkxPSI2MCIgeDI9IjEwMCIgeTI9IjEzMCIgc3Ryb2tlPSIjODg4ODg4IiBzdHJva2Utd2lkdGg9IjIiLz4KICA8bGluZSB4MT0iMTI1IiB5MT0iNjAiIHgyPSIxNTAiIHkyPSIxMzAiIHN0cm9rZT0iIzg4ODg4OCIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPGxpbmUgeDE9IjEyNSIgeTE9IjYwIiB4Mj0iMTkwIiB5Mj0iMTEwIiBzdHJva2U9IiM4ODg4ODgiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4K" alt="Student-Instructor Network" class="img-fluid" style="max-height: 120px;">
+                </div>
+                <p>View relationships between students and their instructors across different courses. Identify key connections and interaction patterns.</p>
+                <a href="{% url 'network_simulation:student_instructor_network' %}" class="btn btn-primary w-100">
+                    <i class="fas fa-chart-network me-2"></i> Explore Network
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-book me-2"></i> Course Connections
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iZ3JhZCIgY3g9IjUwJSIgY3k9IjUwJSIgcj0iNTAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6I2Y0ZmRmZjsiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6I2YyZjhmYTsiIC8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogIDwvZGVmcz4KCiAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjI1MCIgaGVpZ2h0PSIxNTAiIGZpbGw9InVybCgjZ3JhZCkiLz4KCiAgPCEtLSBDb3Vyc2UgTm9kZXMgLS0+CiAgPHJlY3QgeD0iNTAiIHk9IjMwIiB3aWR0aD0iNTAiIGhlaWdodD0iMzAiIHJ4PSI1IiByeT0iNSIgZmlsbD0iIzBkNmVmZCIvPgogIDx0ZXh0IHg9Ijc1IiB5PSI0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0id2hpdGUiIGR5PSI0IiBmb250LXNpemU9IjEwcHgiPkNTMTAxPC90ZXh0PgoKICA8cmVjdCB4PSIxNTAiIHk9IjMwIiB3aWR0aD0iNTAiIGhlaWdodD0iMzAiIHJ4PSI1IiByeT0iNSIgZmlsbD0iIzBkNmVmZCIvPgogIDx0ZXh0IHg9IjE3NSIgeT0iNDgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBkeT0iNCIgZm9udC1zaXplPSIxMHB4Ij5DUzEwMjwvdGV4dD4KCiAgPHJlY3QgeD0iMzAiIHk9IjkwIiB3aWR0aD0iNTAiIGhlaWdodD0iMzAiIHJ4PSI1IiByeT0iNSIgZmlsbD0iIzBkNmVmZCIvPgogIDx0ZXh0IHg9IjU1IiB5PSIxMDgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBkeT0iNCIgZm9udC1zaXplPSIxMHB4Ij5DUzIwMTwvdGV4dD4KCiAgPHJlY3QgeD0iMTAwIiB5PSI5MCIgd2lkdGg9IjUwIiBoZWlnaHQ9IjMwIiByeD0iNSIgcnk9IjUiIGZpbGw9IiMwZDZlZmQiLz4KICA8dGV4dCB4PSIxMjUiIHk9IjEwOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0id2hpdGUiIGR5PSI0IiBmb250LXNpemU9IjEwcHgiPkNTMjAyPC90ZXh0PgoKICA8cmVjdCB4PSIxNzAiIHk9IjkwIiB3aWR0aD0iNTAiIGhlaWdodD0iMzAiIHJ4PSI1IiByeT0iNSIgZmlsbD0iIzBkNmVmZCIvPgogIDx0ZXh0IHg9IjE5NSIgeT0iMTA4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZHk9IjQiIGZvbnQtc2l6ZT0iMTBweCI+Q1MzMDE8L3RleHQ+CgogIDwhLS0gQ29ubmVjdGlvbnMgLS0+CiAgPGxpbmUgeDE9Ijc1IiB5MT0iNjAiIHgyPSI1NSIgeTI9IjkwIiBzdHJva2U9IiM1NjUyNTYiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxsaW5lIHgxPSI3NSIgeTE9IjYwIiB4Mj0iMTI1IiB5Mj0iOTAiIHN0cm9rZT0iIzU2NTI1NiIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPGxpbmUgeDE9IjE3NSIgeTE9IjYwIiB4Mj0iMTI1IiB5Mj0iOTAiIHN0cm9rZT0iIzU2NTI1NiIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPGxpbmUgeDE9IjE3NSIgeTE9IjYwIiB4Mj0iMTk1IiB5Mj0iOTAiIHN0cm9rZT0iIzU2NTI1NiIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPGxpbmUgeDE9IjgwIiB5MT0iNDUiIHgyPSIxNTAiIHkyPSI0NSIgc3Ryb2tlPSIjNTY1MjU2IiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+Cg==" alt="Course Network" class="img-fluid" style="max-height: 120px;">
+                </div>
+                <p>Analyze how different courses are connected through common students, prerequisites, and topics. Discover curriculum patterns.</p>
+                <a href="{% url 'network_simulation:course_network' %}" class="btn btn-info w-100">
+                    <i class="fas fa-project-diagram me-2"></i> Explore Connections
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <i class="fas fa-chart-line me-2"></i> Performance Analytics
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iZ3JhZCIgY3g9IjUwJSIgY3k9IjUwJSIgcj0iNTAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6I2Y1ZmZmNzsiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6I2YyZjhmMjsiIC8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogIDwvZGVmcz4KCiAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjI1MCIgaGVpZ2h0PSIxNTAiIGZpbGw9InVybCgjZ3JhZCkiLz4KCiAgPCEtLSBBeGVzIC0tPgogIDxsaW5lIHgxPSI1MCIgeTE9IjExMCIgeDI9IjIyMCIgeTI9IjExMCIgc3Ryb2tlPSIjNTY1MjU2IiBzdHJva2Utd2lkdGg9IjIiLz4KICA8bGluZSB4MT0iNTAiIHkxPSIzMCIgeDI9IjUwIiB5Mj0iMTEwIiBzdHJva2U9IiM1NjUyNTYiIHN0cm9rZS13aWR0aD0iMiIvPgogCiAgPCEtLSBZIEF4aXMgTGFiZWxzIC0tPgogIDx0ZXh0IHg9IjM1IiB5PSIxMDAiIHRleHQtYW5jaG9yPSJlbmQiIGZpbGw9IiM1NjUyNTYiIGZvbnQtc2l6ZT0iOHB4Ij4yMDwvdGV4dD4KICA8dGV4dCB4PSIzNSIgeT0iNzAiIHRleHQtYW5jaG9yPSJlbmQiIGZpbGw9IiM1NjUyNTYiIGZvbnQtc2l6ZT0iOHB4Ij42MDwvdGV4dD4KICA8dGV4dCB4PSIzNSIgeT0iNDAiIHRleHQtYW5jaG9yPSJlbmQiIGZpbGw9IiM1NjUyNTYiIGZvbnQtc2l6ZT0iOHB4Ij4xMDA8L3RleHQ+CgogIDwhLS0gWCBBeGlzIExhYmVscyAtLT4KICA8dGV4dCB4PSI3MCIgeT0iMTI1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNTY1MjU2IiBmb250LXNpemU9IjhweCI+QTwvdGV4dD4KICA8dGV4dCB4PSI5MCIgeT0iMTI1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNTY1MjU2IiBmb250LXNpemU9IjhweCI+QjwvdGV4dD4KICA8dGV4dCB4PSIxMTAiIHk9IjEyNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzU2NTI1NiIgZm9udC1zaXplPSI4cHgiPkM8L3RleHQ+CiAgPHRleHQgeD0iMTMwIiB5PSIxMjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM1NjUyNTYiIGZvbnQtc2l6ZT0iOHB4Ij5EPC90ZXh0PgogIDx0ZXh0IHg9IjE1MCIgeT0iMTI1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNTY1MjU2IiBmb250LXNpemU9IjhweCI+RTwvdGV4dD4KICA8dGV4dCB4PSIxNzAiIHk9IjEyNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzU2NTI1NiIgZm9udC1zaXplPSI4cHgiPkY8L3RleHQ+CiAgPHRleHQgeD0iMTkwIiB5PSIxMjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM1NjUyNTYiIGZvbnQtc2l6ZT0iOHB4Ij5HPC90ZXh0PgoKICA8IS0tIEJhciBDaGFydCAtLT4KICA8cmVjdCB4PSI2NSIgeT0iNzAiIHdpZHRoPSIxMCIgaGVpZ2h0PSI0MCIgZmlsbD0iIzE5ODc1NCIvPgogIDxyZWN0IHg9Ijg1IiB5PSI1MCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjMTk4NzU0Ii8+CiAgPHJlY3QgeD0iMTA1IiB5PSI2MCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjMTk4NzU0Ii8+CiAgPHJlY3QgeD0iMTI1IiB5PSI0MCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjcwIiBmaWxsPSIjMTk4NzU0Ii8+CiAgPHJlY3QgeD0iMTQ1IiB5PSI4MCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjMwIiBmaWxsPSIjMTk4NzU0Ii8+CiAgPHJlY3QgeD0iMTY1IiB5PSI2MCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjMTk4NzU0Ii8+CiAgPHJlY3QgeD0iMTg1IiB5PSI3MCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMTk4NzU0Ii8+CgogIDwhLS0gTGluZSBDaGFydCAtLT4KICA8cG9seWxpbmUgcG9pbnRzPSI3MCw2MCA5MCw0NSAxMTAsNTMgMTMwLDM1IDE1MCw3NSAxNzAsNTAgMTkwLDU1IgogICAgICAgICAgICBmaWxsPSJub25lIiBzdHJva2U9IiNkNjMzODQiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxjaXJjbGUgY3g9IjcwIiBjeT0iNjAiIHI9IjMiIGZpbGw9IiNkNjMzODQiLz4KICA8Y2lyY2xlIGN4PSI5MCIgY3k9IjQ1IiByPSIzIiBmaWxsPSIjZDYzMzg0Ii8+CiAgPGNpcmNsZSBjeD0iMTEwIiBjeT0iNTMiIHI9IjMiIGZpbGw9IiNkNjMzODQiLz4KICA8Y2lyY2xlIGN4PSIxMzAiIGN5PSIzNSIgcj0iMyIgZmlsbD0iI2Q2MzM4NCIvPgogIDxjaXJjbGUgY3g9IjE1MCIgY3k9Ijc1IiByPSIzIiBmaWxsPSIjZDYzMzg0Ii8+CiAgPGNpcmNsZSBjeD0iMTcwIiBjeT0iNTAiIHI9IjMiIGZpbGw9IiNkNjMzODQiLz4KICA8Y2lyY2xlIGN4PSIxOTAiIGN5PSI1NSIgcj0iMyIgZmlsbD0iI2Q2MzM4NCIvPgo8L3N2Zz4K" alt="Performance Analytics" class="img-fluid" style="max-height: 120px;">
+                </div>
+                <p>Track student performance across courses, identify trends, and analyze grade distributions. Gain insights into educational outcomes.</p>
+                <a href="{% url 'network_simulation:student_performance' %}" class="btn btn-success w-100">
+                    <i class="fas fa-chart-bar me-2"></i> Explore Performance
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Refresh button functionality
+        document.getElementById('refreshData').addEventListener('click', function() {
+            location.reload();
+        });
+    });
+</script>
 {% endblock %}

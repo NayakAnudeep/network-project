@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'network_simulation/base.html' %}
 
 {% block content %}
 <div class="container">
@@ -7,13 +7,18 @@
     
     <div class="row">
         <div class="col-md-4">
-            <a href="{% url 'network_dashboard' %}" class="btn btn-primary">Network Dashboard</a>
+            <a href="{% url 'network_simulation:dashboard' %}" class="btn btn-primary">Network Dashboard</a>
         </div>
         <div class="col-md-4">
-            <a href="{% url 'student_network' %}" class="btn btn-secondary">Student Network</a>
+            <a href="{% url 'network_simulation:student_instructor_network' %}" class="btn btn-secondary">Student-Instructor Network</a>
         </div>
         <div class="col-md-4">
-            <a href="{% url 'course_network' %}" class="btn btn-info">Course Network</a>
+            <a href="{% url 'network_simulation:course_network' %}" class="btn btn-info">Course Network</a>
+        </div>
+    </div>
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <a href="{% url 'network_simulation:student_performance' %}" class="btn btn-success">Student Performance</a>
         </div>
     </div>
 </div>

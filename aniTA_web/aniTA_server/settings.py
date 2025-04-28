@@ -46,7 +46,7 @@ INSTALLED_APPS = [
 
 ARANGO_DB = {
     'HOST': os.getenv("ARANGO_DB_HOST", "http://arangodb"),  # Corrected to match service name
-    'PORT': os.getenv("ARANGO_DB_PORT", "8529"),
+    'PORT': os.getenv("ARANGO_DB_PORT", "8529"),  # This is still correct inside the container
     'USERNAME': os.getenv("ARANGO_DB_USER", "root"),
     'PASSWORD': os.getenv("ARANGO_DB_PASSWORD", "aitaArango"),
     'DATABASE': os.getenv("ARANGO_DB_NAME", "aita_db")
@@ -131,13 +131,23 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+# Static files settings
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# Instead of relying on Docker-specific paths, use paths relative to BASE_DIR
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+
+# Create a base static directory if it doesn't exist
+os.makedirs(os.path.join(BASE_DIR, "static"), exist_ok=True)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Authentication settings
+LOGIN_URL = '/users/login/'
+LOGIN_REDIRECT_URL = '/'

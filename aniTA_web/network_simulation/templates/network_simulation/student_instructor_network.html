@@ -4,6 +4,11 @@
 
 {% block page_title %}Student-Instructor Network Analysis{% endblock %}
 
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'network_simulation:dashboard' %}">Dashboard</a></li>
+<li class="breadcrumb-item active" aria-current="page">Student-Instructor Network</li>
+{% endblock %}
+
 {% block page_actions %}
 <button type="button" class="btn btn-sm btn-outline-primary me-2" id="refreshData">
     <i class="fas fa-sync-alt"></i> Refresh Data
@@ -355,7 +360,7 @@
             html += `
                 <tr>
                     <td>
-                        <a href="{% url 'network_simulation:dashboard' %}instructor/${instructor.id}/">
+                        <a href="javascript:void(0);" onclick="alert('Instructor detail would link to ' + instructor.id)">
                             ${instructor.name}
                         </a>
                     </td>
@@ -386,7 +391,7 @@
             html += `
                 <tr>
                     <td>
-                        <a href="{% url 'network_simulation:dashboard' %}student/${student.id}/">
+                        <a href="javascript:void(0);" onclick="alert('Student detail would link to ' + student.id)">
                             ${student.name}
                         </a>
                     </td>

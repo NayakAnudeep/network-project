@@ -12,7 +12,6 @@ urlpatterns = [
     path("submissions/<str:course_code>/<str:assignment_id>", views.class_assignment_submissions, name="class_assignment_submissions"),
     path("courses/", views.courses, name="all_courses"),
     path("course/<int:course_id>/", views.course, name='course'),
-    path("users/", include('users.urls')),
     path("add_class/", views.add_class, name='add_class'),
     path("student_add_course_post/", views.student_add_course_post, name='student_add_course_post'),
     path("student-add-class/", views.student_add_course_get, name='student_add_course_get'),

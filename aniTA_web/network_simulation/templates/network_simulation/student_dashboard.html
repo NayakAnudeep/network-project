@@ -1,0 +1,242 @@
+{% extends 'network_simulation/base.html' %}
+
+{% block title %}Student Analytics Dashboard{% endblock %}
+
+{% block page_title %}Student Performance Analytics{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"><a href="{% url 'network_simulation:index' %}">Network</a></li>
+<li class="breadcrumb-item active" aria-current="page">Student Dashboard</li>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-history me-2"></i> Mistake History
+            </div>
+            <div class="card-body">
+                {% if mistakes %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Question</th>
+                                <th>Score</th>
+                                <th>Feedback</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mistake in mistakes %}
+                            <tr>
+                                <td>{{ mistake.question }}</td>
+                                <td>{{ mistake.score_awarded }}</td>
+                                <td>{{ mistake.justification|truncatechars:100 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> You don't have any recorded mistakes yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-bar me-2"></i> Weakest Rubric Areas
+            </div>
+            <div class="card-body">
+                {% if weak_areas %}
+                <div id="weakAreasChart" style="height: 300px;"></div>
+                <div class="mt-3">
+                    <h6>Improvement Suggestions:</h6>
+                    <ul>
+                        {% for area in weak_areas|slice:":3" %}
+                        <li>
+                            <strong>{{ area.criteria }}:</strong>
+                            Focus on improving this area (avg. score: {{ area.avg_score|floatformat:1 }})
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> Not enough data to determine weak areas.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-book me-2"></i> Recommended Sections to Review
+            </div>
+            <div class="card-body">
+                {% if recommended_sections %}
+                <div class="row">
+                    {% for section in recommended_sections %}
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6 class="card-title">{{ section.title }}</h6>
+                                <div class="d-flex justify-content-between">
+                                    <span class="badge bg-primary">{{ section.class_code }}</span>
+                                    <span class="text-muted small">Relevance score: {{ section.relevance }}</span>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <button class="btn btn-sm btn-outline-primary view-section" 
+                                        data-section-id="{{ section.id }}">
+                                    <i class="fas fa-eye me-1"></i> View Section
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> No specific section recommendations available yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Section View Modal -->
+<div class="modal fade" id="sectionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sectionModalTitle">Section Content</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="sectionModalBody">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if weak_areas %}
+        // Initialize weak areas chart
+        const weakAreasData = [
+            {% for area in weak_areas %}
+            {
+                criteria: "{{ area.criteria }}",
+                avgScore: {{ area.avg_score|floatformat:1 }},
+                count: {{ area.count }}
+            },
+            {% endfor %}
+        ];
+        
+        const categories = weakAreasData.slice(0, 5).map(d => d.criteria);
+        const scores = weakAreasData.slice(0, 5).map(d => d.avgScore);
+        const counts = weakAreasData.slice(0, 5).map(d => d.count);
+        
+        const options = {
+            series: [{
+                name: 'Average Score',
+                data: scores
+            }],
+            chart: {
+                type: 'bar',
+                height: 300,
+                toolbar: {
+                    show: false
+                }
+            },
+            plotOptions: {
+                bar: {
+                    borderRadius: 4,
+                    horizontal: true,
+                    barHeight: '60%'
+                }
+            },
+            colors: ['#9c4dcc'],
+            dataLabels: {
+                enabled: true,
+                formatter: function (val) {
+                    return val.toFixed(1);
+                },
+                offsetX: 10
+            },
+            xaxis: {
+                categories: categories,
+                labels: {
+                    formatter: function (val) {
+                        return val.toFixed(1);
+                    }
+                },
+                min: 0,
+                max: 100
+            },
+            tooltip: {
+                y: {
+                    formatter: function (val) {
+                        return val.toFixed(1) + ' / 100';
+                    }
+                }
+            }
+        };
+
+        const chart = new ApexCharts(document.querySelector("#weakAreasChart"), options);
+        chart.render();
+        {% endif %}
+        
+        // Handle section view buttons
+        document.querySelectorAll('.view-section').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const sectionId = this.dataset.sectionId;
+                
+                // Show modal with loading spinner
+                const modal = new bootstrap.Modal(document.getElementById('sectionModal'));
+                modal.show();
+                
+                // Fetch section content
+                fetch(`/network/api/section/${sectionId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('sectionModalTitle').textContent = data.title || 'Section Content';
+                        document.getElementById('sectionModalBody').innerHTML = `
+                            <div class="mb-3">
+                                <span class="badge bg-primary">${data.class_code || ''}</span>
+                            </div>
+                            <div class="section-content">
+                                ${data.content || 'No content available'}
+                            </div>
+                        `;
+                    })
+                    .catch(error => {
+                        document.getElementById('sectionModalBody').innerHTML = `
+                            <div class="alert alert-danger">
+                                Error loading section content. Please try again.
+                            </div>
+                        `;
+                    });
+            });
+        });
+    });
+</script>
+{% endblock %}

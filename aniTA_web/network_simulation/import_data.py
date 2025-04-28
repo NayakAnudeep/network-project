@@ -6,7 +6,7 @@ import django
 from django.db import transaction
 
 # Set up Django environment
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'aniTA_web.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'aniTA_server.settings')
 django.setup()
 
 # Import models
