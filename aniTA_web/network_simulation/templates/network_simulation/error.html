@@ -1,0 +1,15 @@
+{% extends "network_simulation/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="alert alert-danger">
+        <h4 class="alert-heading">Error</h4>
+        <p>{{ error }}</p>
+    </div>
+    
+    <div class="text-center mt-4">
+        <a href="javascript:history.back()" class="btn btn-primary">Go Back</a>
+        <a href="{% url 'network_simulation:index' %}" class="btn btn-outline-secondary ml-2">Return to Home</a>
+    </div>
+</div>
+{% endblock %}

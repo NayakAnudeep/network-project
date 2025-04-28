@@ -1,0 +1,106 @@
+{% extends "network_simulation/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'network_simulation:source_materials_list' %}">Source Materials</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'network_simulation:source_material_detail' section.material_id %}">{{ section.material_title }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ section.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">{{ section.title }}</h3>
+                    {% if section.pagerank_score %}
+                    <span class="badge badge-info" data-toggle="tooltip" title="PageRank Score - This shows the importance of this section in the knowledge graph">
+                        PageRank: {{ section.pagerank_score|floatformat:4 }}
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="markdown-content">
+                        {{ html_content|safe }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <!-- Related Misconceptions Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Common Misconceptions</h5>
+                </div>
+                <div class="card-body">
+                    {% if section.related_mistakes %}
+                    <ul class="list-group list-group-flush">
+                        {% for mistake in section.related_mistakes %}
+                        <li class="list-group-item">
+                            <h6>{{ mistake.question }}</h6>
+                            <p class="text-muted mb-0">{{ mistake.justification }}</p>
+                            {% if mistake.strength %}
+                            <div class="mt-2">
+                                <div class="progress" style="height: 5px;">
+                                    <div class="progress-bar" role="progressbar" style="width: {{ mistake.strength|floatformat:0 }}%;" 
+                                         aria-valuenow="{{ mistake.strength|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <small class="text-muted">Relevance: {{ mistake.strength|floatformat:2 }}</small>
+                            </div>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">No related misconceptions found.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Students Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Students Needing Focus Here</h5>
+                </div>
+                <div class="card-body">
+                    {% if students %}
+                    <ul class="list-group list-group-flush">
+                        {% for student in students %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <a href="{% url 'network_simulation:student_section_recommendations' student.id %}">{{ student.name }}</a>
+                            <span class="badge badge-primary badge-pill">{{ student.mistake_count }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">No students currently need to focus on this section.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .markdown-content {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+    }
+    .markdown-content h1, 
+    .markdown-content h2, 
+    .markdown-content h3, 
+    .markdown-content h4, 
+    .markdown-content h5, 
+    .markdown-content h6 {
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+    .markdown-content p {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}

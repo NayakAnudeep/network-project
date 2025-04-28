@@ -20,6 +20,35 @@ from .graph_analysis import (
     get_mistake_clusters_with_stats
 )
 
+# Import ArangoDB network analysis functions
+from .arango_network_analysis import (
+    get_student_instructor_network,
+    get_course_network,
+    detect_grading_inconsistencies as arango_detect_grading_inconsistencies,
+    get_student_weaknesses,
+    get_instructor_teaching_insights,
+    get_course_material_recommendations
+)
+
+# Import ArangoDB-specific views
+from .views_arango import (
+    api_arango_student_weaknesses,
+    api_arango_instructor_insights,
+    api_arango_grading_inconsistencies,
+    api_arango_course_recommendations,
+    api_arango_student_instructor_network,
+    api_arango_course_network
+)
+
+# Import source material views
+from .views_source_material import (
+    source_materials_list,
+    source_material_detail,
+    section_detail,
+    student_section_recommendations,
+    instructor_problem_sections
+)
+
 # Safe import of models - if database not set up yet
 try:
     from .models import Student, Instructor, Course, Assessment

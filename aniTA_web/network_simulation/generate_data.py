@@ -13,28 +13,27 @@ TERMS = 2
 ASSESSMENTS_PER_TERM = 3
 ACADEMIC_YEAR = 2023  # Starting year
 
-# Lists for names
+# Lists for names - Famous scientists, artists, inventors, and other notable figures
 FIRST_NAMES = [
-    "James", "Mary", "Robert", "Patricia", "John", "Jennifer", "Michael", "Linda",
-    "David", "Elizabeth", "William", "Barbara", "Richard", "Susan", "Joseph", "Jessica",
-    "Thomas", "Sarah", "Charles", "Karen", "Christopher", "Nancy", "Daniel", "Lisa",
-    "Matthew", "Betty", "Anthony", "Margaret", "Mark", "Sandra", "Donald", "Ashley",
-    "Steven", "Kimberly", "Paul", "Emily", "Andrew", "Donna", "Joshua", "Michelle",
-    "Kenneth", "Dorothy", "Kevin", "Carol", "Brian", "Amanda", "George", "Melissa",
-    "Edward", "Deborah", "Ronald", "Stephanie", "Timothy", "Rebecca", "Jason", "Sharon",
-    "Jeffrey", "Laura", "Ryan", "Cynthia", "Jacob", "Kathleen", "Gary", "Amy",
-    "Nicholas", "Shirley", "Eric", "Angela", "Jonathan", "Helen", "Stephen", "Anna"
+    "Albert", "Marie", "Nikola", "Ada", "Leonardo", "Frida", "Isaac", "Grace",
+    "Stephen", "Maya", "Wolfgang", "Jane", "Richard", "Emmy", "Charles", "Rosalind",
+    "Alan", "Katherine", "Neil", "Hedy", "Thomas", "Margaret", "Carl", "Rachel",
+    "Louis", "Virginia", "Max", "Toni", "Galileo", "Florence", "Alexander", "Rosa",
+    "Srinivasa", "Eleanor", "Ernest", "Barbara", "Johannes", "Georgia", "James", "Dorothy",
+    "Niels", "Sylvia", "Werner", "Zora", "Enrico", "Mary", "Robert", "Elizabeth",
+    "Mahatma", "Malala", "Nelson", "Amelia", "Winston", "Cleopatra", "Martin", "Marie",
+    "Nikola", "Frida", "Steve", "Michelle", "Bill", "Ruth", "Elon", "Oprah"
 ]
 
 LAST_NAMES = [
-    "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
-    "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
-    "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson",
-    "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker",
-    "Young", "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores",
-    "Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell", "Mitchell",
-    "Carter", "Roberts", "Gomez", "Phillips", "Evans", "Turner", "Diaz", "Parker",
-    "Cruz", "Edwards", "Collins", "Reyes", "Stewart", "Morris", "Morales", "Murphy"
+    "Einstein", "Curie", "Tesla", "Lovelace", "da Vinci", "Kahlo", "Newton", "Hopper",
+    "Hawking", "Angelou", "Mozart", "Austen", "Feynman", "Noether", "Darwin", "Franklin",
+    "Turing", "Johnson", "Armstrong", "Lamarr", "Edison", "Mead", "Sagan", "Carson",
+    "Pasteur", "Woolf", "Planck", "Morrison", "Galilei", "Nightingale", "Graham", "Parks",
+    "Ramanujan", "Roosevelt", "Hemingway", "McClintock", "Kepler", "O'Keeffe", "Watson", "Hodgkin",
+    "Bohr", "Plath", "Heisenberg", "Hurston", "Fermi", "Shelley", "Oppenheimer", "Blackwell",
+    "Gandhi", "Yousafzai", "Mandela", "Earhart", "Churchill", "Ptolemy", "Luther", "Antoinette",
+    "Tesla", "Kahlo", "Jobs", "Obama", "Gates", "Ginsburg", "Musk", "Winfrey"
 ]
 
 SUBJECTS = [
@@ -237,6 +236,40 @@ def save_data_as_json(data, output_file):
     with open(output_file, 'w') as f:
         json.dump(data, f, indent=2)
 
+def save_user_credentials_csv(data, output_dir):
+    """Save user credentials as CSV files for simulated users."""
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Student credentials
+    with open(os.path.join(output_dir, 'student_credentials.csv'), 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['id', 'name', 'email', 'password', 'role'])
+        for student in data['students']:
+            # Create email from name
+            email = f"{student['name'].replace(' ', '.').lower()}@student.edu"
+            writer.writerow([
+                student['id'], 
+                student['name'], 
+                email,
+                f"pass_{student['id']}", # Simple password for demo
+                "student"
+            ])
+    
+    # Instructor credentials
+    with open(os.path.join(output_dir, 'instructor_credentials.csv'), 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['id', 'name', 'email', 'password', 'role'])
+        for instructor in data['instructors']:
+            # Create email from name
+            email = f"{instructor['name'].replace(' ', '.').lower()}@faculty.edu"
+            writer.writerow([
+                instructor['id'], 
+                instructor['name'], 
+                email,
+                f"pass_{instructor['id']}", # Simple password for demo
+                "instructor"
+            ])
+
 if __name__ == "__main__":
     # Generate the data
     print("Generating educational network data...")
@@ -246,6 +279,10 @@ if __name__ == "__main__":
     output_dir = "csv_data"
     save_data_as_csv(network_data, output_dir)
     print(f"CSV data saved to {output_dir}/")
+    
+    # Save user credentials
+    save_user_credentials_csv(network_data, output_dir)
+    print(f"User credentials saved to {output_dir}/")
     
     # Save as JSON
     json_file = "network_data.json"

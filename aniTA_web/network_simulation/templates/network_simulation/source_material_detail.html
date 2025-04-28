@@ -1,0 +1,69 @@
+{% extends "network_simulation/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'network_simulation:source_materials_list' %}">Source Materials</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ material.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2>{{ material.title }}</h2>
+            <p class="text-muted mb-0">Course: {{ material.course }}</p>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="markdown-content">
+                        {{ html_content|safe }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Sections</h5>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            {% for section in sections %}
+                            <a href="{% url 'network_simulation:section_detail' section.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                {{ section.title }}
+                                {% if section.pagerank_score %}
+                                <span class="badge badge-primary badge-pill" data-toggle="tooltip" title="PageRank Score">
+                                    {{ section.pagerank_score|floatformat:3 }}
+                                </span>
+                                {% endif %}
+                            </a>
+                            {% empty %}
+                            <div class="list-group-item">No sections found</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .markdown-content {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+    }
+    .markdown-content h1, 
+    .markdown-content h2, 
+    .markdown-content h3, 
+    .markdown-content h4, 
+    .markdown-content h5, 
+    .markdown-content h6 {
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+    .markdown-content p {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}

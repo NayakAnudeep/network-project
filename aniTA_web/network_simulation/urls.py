@@ -29,4 +29,17 @@ urlpatterns = [
     path('api/mistake-clusters/', views.api_mistake_clusters, name='api_mistake_clusters'),
     path('api/student-mistakes/<int:student_id>/', views.api_student_mistakes, name='api_student_mistakes'),
     path('api/instructor-mistake-heatmap/<int:instructor_id>/', views.api_instructor_mistake_heatmap, name='api_instructor_mistake_heatmap'),
+    
+    # New ArangoDB analysis endpoints
+    path('api/arango/student-weaknesses/<str:student_id>/', views.api_arango_student_weaknesses, name='api_arango_student_weaknesses'),
+    path('api/arango/instructor-insights/<str:instructor_id>/', views.api_arango_instructor_insights, name='api_arango_instructor_insights'),
+    path('api/arango/grading-inconsistencies/', views.api_arango_grading_inconsistencies, name='api_arango_grading_inconsistencies'),
+    path('api/arango/course-material-recommendations/<str:student_id>/', views.api_arango_course_recommendations, name='api_arango_course_recommendations'),
+    
+    # Source material and section views
+    path('source-materials/', views.source_materials_list, name='source_materials_list'),
+    path('source-material/<str:material_id>/', views.source_material_detail, name='source_material_detail'),
+    path('section/<str:section_id>/', views.section_detail, name='section_detail'),
+    path('student-recommendations/<str:student_id>/', views.student_section_recommendations, name='student_section_recommendations'),
+    path('instructor-problem-sections/<str:instructor_id>/', views.instructor_problem_sections, name='instructor_problem_sections'),
 ]

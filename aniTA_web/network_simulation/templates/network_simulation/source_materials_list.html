@@ -1,0 +1,42 @@
+{% extends "network_simulation/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Source Materials</h2>
+    
+    <div class="card mb-4">
+        <div class="card-body">
+            <p class="card-text">
+                These are the source materials for courses, ranked by network algorithm. Each material contains
+                sections that are recommended to students based on their learning patterns and identified misconceptions.
+            </p>
+        </div>
+    </div>
+    
+    <div class="row">
+        {% for material in materials %}
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <strong>{{ material.course_title }}</strong>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ material.title }}</h5>
+                    <p class="card-text text-muted">Topic: {{ material.topic }}</p>
+                    <a href="{% url 'network_simulation:source_material_detail' material.id %}" class="btn btn-primary">View Material</a>
+                </div>
+                <div class="card-footer text-muted">
+                    Created: {{ material.created_at|slice:":10" }}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                No source materials found. Run the generate_assignments command to create simulated materials.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

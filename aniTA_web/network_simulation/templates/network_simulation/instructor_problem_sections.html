@@ -1,0 +1,120 @@
+{% extends "network_simulation/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Teaching Insights for {{ instructor.name }}</h2>
+    
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> These insights are generated using network graph algorithms based on student submissions and performance patterns.
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Challenging Sections for Students</h4>
+                    <p class="text-muted mb-0 small">Areas where students struggle the most, ranked by network analysis</p>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for section in problem_sections %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">
+                                <a href="{% url 'network_simulation:section_detail' section.id %}">{{ section.title }}</a>
+                            </h5>
+                            <div>
+                                <span class="badge badge-danger" data-toggle="tooltip" title="Number of Mistakes">{{ section.mistake_count }}</span>
+                                <span class="badge badge-warning" data-toggle="tooltip" title="Affected Students">{{ section.student_count }}</span>
+                            </div>
+                        </div>
+                        <p class="mb-1">
+                            <small class="text-muted">From: {{ section.material_title }}</small> | 
+                            <small class="text-muted">Course: {{ section.course }}</small>
+                        </p>
+                        <div class="mt-2">
+                            {{ section.html_preview|safe }}
+                        </div>
+                        <div class="mt-2">
+                            <div class="progress" style="height: 5px;">
+                                <div class="progress-bar bg-danger" role="progressbar" 
+                                     style="width: {{ section.percentage|floatformat:0 }}%;" 
+                                     aria-valuenow="{{ section.percentage|floatformat:0 }}" 
+                                     aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <small class="text-muted">{{ section.percentage|floatformat:1 }}% of students struggle with this section</small>
+                        </div>
+                        <div class="mt-2">
+                            <a href="{% url 'network_simulation:section_detail' section.id %}" class="btn btn-sm btn-outline-primary">View Detail</a>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item">
+                        <p class="text-muted">No problem areas identified yet. More student submissions are needed to generate insights.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Grading Inconsistencies</h4>
+                </div>
+                <div class="card-body">
+                    {% if inconsistencies %}
+                    <ul class="list-group list-group-flush">
+                        {% for item in inconsistencies %}
+                        <li class="list-group-item">
+                            <h6>{{ item.course }}</h6>
+                            <p class="mb-1">Assignment: {{ item.assignment_id }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-danger">{{ item.max_difference|floatformat:1 }} point difference</span>
+                                <span class="badge badge-secondary">{{ item.instance_count }} instances</span>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">No grading inconsistencies detected.</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h4>Teaching Recommendations</h4>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% if problem_sections %}
+                        <li class="list-group-item">
+                            <h6>Review Material Structure</h6>
+                            <p class="mb-0 small">Consider reorganizing content for the top struggling sections to improve comprehension.</p>
+                        </li>
+                        <li class="list-group-item">
+                            <h6>Focus Class Time</h6>
+                            <p class="mb-0 small">Spend additional class time on topics related to {{ problem_sections.0.title }}.</p>
+                        </li>
+                        {% endif %}
+                        {% if inconsistencies %}
+                        <li class="list-group-item">
+                            <h6>Review Grading Criteria</h6>
+                            <p class="mb-0 small">Ensure consistent application of rubrics across similar submissions.</p>
+                        </li>
+                        {% endif %}
+                        <li class="list-group-item">
+                            <h6>Network-Based Insights</h6>
+                            <p class="mb-0 small">The knowledge graph reveals connections between concepts that students find challenging.</p>
+                        </li>
+                    </ul>
+                    
+                    <div class="text-center mt-3">
+                        <a href="{% url 'network_simulation:instructor_dashboard' %}" class="btn btn-outline-primary">View Instructor Dashboard</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

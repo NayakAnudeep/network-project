@@ -22,6 +22,35 @@ from users.material_db import (
 )
 from users.arangodb import db
 
+# Simple function to get a response from Claude
+def get_claude_response(prompt, max_tokens=1000):
+    """
+    Send a prompt to Claude and get a response.
+    
+    Args:
+        prompt: The text prompt to send to Claude
+        max_tokens: Maximum number of tokens in the response
+        
+    Returns:
+        The text response from Claude
+    """
+    try:
+        api_key = getattr(settings, 'ANTHROPIC_API_KEY', os.getenv('ANTHROPIC_API_KEY'))
+        if not api_key:
+            raise ValueError("Anthropic API key is required.")
+            
+        client = Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=max_tokens,
+            system="You are a helpful AI assistant for educational content generation.",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.content[0].text
+    except Exception as e:
+        print(f"Error calling Claude API: {e}")
+        return f"Error: Could not get response from Claude. {str(e)}"
+
 class ClaudeGradingService:
     def __init__(self, api_key=None):
         self.api_key = api_key or getattr(settings, 'ANTHROPIC_API_KEY', os.getenv('ANTHROPIC_API_KEY'))

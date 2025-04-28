@@ -9,4 +9,7 @@ langchain-community
 sentence-transformers
 numpy
 transformers
-matplotlib>=3.5.0python-louvain
+markdown
+matplotlib>=3.5.0
+python-louvain
+networkx
