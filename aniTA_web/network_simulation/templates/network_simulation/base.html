@@ -17,6 +17,7 @@
     <!-- D3.js for network visualization -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
     
+    
     <style>
         /* Custom CSS - Purple Theme */
         :root {
@@ -206,12 +207,6 @@
                         {% endif %}
                         
                         <li class="nav-item">
-                            <a class="nav-link {% if 'student-instructor-network' in request.path %}active{% endif %}" href="{% url 'network_simulation:student_instructor_network' %}">
-                                <i class="fas fa-users me-2"></i>
-                                Student-Instructor Network
-                            </a>
-                        </li>
-                        <li class="nav-item">
                             <a class="nav-link {% if 'course-network' in request.path %}active{% endif %}" href="{% url 'network_simulation:course_network' %}">
                                 <i class="fas fa-book me-2"></i>
                                 Course Network
@@ -251,6 +246,7 @@
                     </ul>
                 </div>
             </nav>
+            
             
             <!-- Main content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">

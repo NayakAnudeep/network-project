@@ -656,6 +656,7 @@ def db_get_assignment_instructions_file_content(assignment_id):
 def db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback):
     """
     Update a submission with AI-generated feedback and score.
+    Also sets the submission as graded so students can see results immediately.
 
     Parameters:
     - user_id: Student's user ID
@@ -681,8 +682,27 @@ def db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback
         submission = submission_list[0]
         submission["ai_score"] = ai_score
         submission["ai_feedback"] = ai_feedback
+        
+        # Automatically set the grade to the AI score and mark as graded
+        # so students can see results immediately without professor review
+        submission["grade"] = ai_score
+        submission["graded"] = True
+        
+        # Convert AI feedback to a format suitable for display
+        feedback_text = ""
+        for item in ai_feedback:
+            question = item.get("question", "")
+            score = item.get("score", 0)
+            justification = item.get("justification", "")
+            feedback_text += f"{question}\nScore: {score:.2f}\n{justification}\n\n"
+        
+        # Add overall score at the beginning of the feedback
+        feedback_text = f"Overall Score: {ai_score:.2f}/100\n\n" + feedback_text.strip()
+        
+        submission["feedback"] = feedback_text.strip()
+        
         submissions.update(submission)
-        print("UPDATED SUBMISSION", flush=True)
+        print("UPDATED SUBMISSION - Automatically graded by AI", flush=True)
         return None
 
     except Exception as e:

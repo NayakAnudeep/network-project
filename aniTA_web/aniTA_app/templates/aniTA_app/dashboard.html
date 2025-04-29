@@ -90,7 +90,7 @@
                                     Submitted
                                     {% else %}
                                     <span class="status-indicator graded"></span>
-                                    Graded: {{ assignment.grade }}/{{ assignment.total_points }}
+                                    Graded: {{ assignment.grade|floatformat:2 }}/{{ assignment.total_points }}
                                     {% endif %}
                                 </div>
                                 <div class="assignment-points">

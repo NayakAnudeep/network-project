@@ -27,31 +27,7 @@
 
 {% block content %}
 <div class="row mb-4">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="fas fa-project-diagram me-2"></i> Course Network Visualization</span>
-                <div class="btn-group btn-group-sm" role="group">
-                    <button type="button" class="btn btn-outline-primary active" id="viewAll">All Connections</button>
-                    <button type="button" class="btn btn-outline-primary" id="viewStrongConnections">Strong Connections</button>
-                    <button type="button" class="btn btn-outline-primary" id="viewByGrades">By Grades</button>
-                </div>
-            </div>
-            <div class="card-body">
-                <div id="networkGraph" class="network-graph">
-                    <div class="d-flex justify-content-center align-items-center h-100">
-                        <div class="text-center">
-                            <div class="spinner-border text-primary mb-3" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p>Loading network data...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
+    <div class="col-md-12">
         <div class="card metrics-card">
             <div class="card-header">
                 <i class="fas fa-chart-line me-2"></i> Network Metrics
@@ -93,7 +69,7 @@
     </div>
 </div>
 
-<div class="row">
+<div class="row mb-4">
     <div class="col-md-12">
         <div class="card">
             <div class="card-header">
@@ -125,359 +101,30 @@
         </div>
     </div>
 </div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-project-diagram me-2"></i> Course Network Visualization
+            </div>
+            <div class="card-body">
+                <div id="networkGraph" class="network-graph">
+                    <div class="d-flex justify-content-center align-items-center h-100">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
-<script>
-    // Load data when page loads
-    document.addEventListener('DOMContentLoaded', function() {
-        loadNetworkData();
-        
-        // Set up refresh button
-        document.getElementById('refreshData').addEventListener('click', function() {
-            loadNetworkData();
-        });
-        
-        // Set up view toggle buttons
-        document.getElementById('viewAll').addEventListener('click', function() {
-            setActiveButton(this);
-            // Reload default view
-            loadNetworkData();
-        });
-        
-        document.getElementById('viewStrongConnections').addEventListener('click', function() {
-            setActiveButton(this);
-            // TODO: Filter to show only strong connections
-            alert('This feature would show only the strongest connections between courses.');
-        });
-        
-        document.getElementById('viewByGrades').addEventListener('click', function() {
-            setActiveButton(this);
-            // TODO: Color by grades
-            alert('This feature would color the network based on average course grades.');
-        });
-        
-        // Set up export buttons
-        document.getElementById('exportPNG').addEventListener('click', function() {
-            // Get the network image and download it
-            const imgData = document.querySelector('#networkGraph img').src;
-            const link = document.createElement('a');
-            link.href = imgData;
-            link.download = 'course_network.png';
-            link.click();
-        });
-        
-        document.getElementById('exportData').addEventListener('click', function() {
-            // TODO: Export network data as JSON
-            alert('This feature would export the network data in JSON format.');
-        });
-        
-        document.getElementById('exportMetrics').addEventListener('click', function() {
-            // TODO: Export metrics as CSV
-            alert('This feature would export the network metrics as a CSV file.');
-        });
-    });
-    
-    function setActiveButton(button) {
-        // Remove active class from all buttons in the group
-        const buttons = button.parentElement.querySelectorAll('.btn');
-        buttons.forEach(btn => btn.classList.remove('active'));
-        
-        // Add active class to clicked button
-        button.classList.add('active');
-    }
-    
-    function loadNetworkData() {
-        fetch('{% url "network_simulation:api_course_network" %}')
-            .then(response => response.json())
-            .then(data => {
-                // Display network graph
-                if (data.network_graph) {
-                    const container = document.getElementById('networkGraph');
-                    container.innerHTML = `<img src="data:image/png;base64,${data.network_graph}" alt="Course Network" class="img-fluid">`;
-                } else {
-                    // If there's no network_graph, create a visualization with the nodes and links
-                    const nodes = data.nodes || [];
-                    const links = data.links || [];
-                    
-                    // Create a simple visualization message
-                    const container = document.getElementById('networkGraph');
-                    container.innerHTML = `
-                        <div class="alert alert-info">
-                            <p>Course network visualization with ${nodes.length} nodes and ${links.length} links</p>
-                            <p>Nodes: ${nodes.map(n => n.name).join(', ').slice(0, 100)}...</p>
-                        </div>
-                    `;
-                }
-                
-                // Display network metrics
-                displayNetworkMetrics(data.network_metrics);
-                
-                // Display course enrollment chart
-                if (data.course_enrollment) {
-                    createCourseEnrollmentChart(data.course_enrollment);
-                }
-                
-                // Display course grades chart
-                if (data.course_avg_grades) {
-                    createCourseGradesChart(data.course_avg_grades);
-                }
-                
-                // Display course connections
-                if (data.course_connections) {
-                    displayCourseConnections(data.course_connections);
-                }
-            })
-            .catch(error => {
-                console.error('Error loading network data:', error);
-                // Display error message
-                document.getElementById('networkGraph').innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Error loading network data. Please try refreshing the page.
-                    </div>
-                `;
-            });
-    }
-    
-    function displayNetworkMetrics(metrics) {
-        const container = document.getElementById('networkMetrics');
-        
-        if (!metrics) {
-            container.innerHTML = `
-                <li class="text-danger">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    No network metrics available.
-                </li>
-            `;
-            return;
-        }
-        
-        let html = '';
-        
-        // Basic metrics
-        html += `
-            <li class="d-flex justify-content-between">
-                <span>Total Courses:</span>
-                <strong>${metrics.node_count}</strong>
-            </li>
-            <li class="d-flex justify-content-between">
-                <span>Total Connections:</span>
-                <strong>${metrics.edge_count}</strong>
-            </li>
-            <li class="d-flex justify-content-between">
-                <span>Network Density:</span>
-                <strong>${(metrics.density * 100).toFixed(2)}%</strong>
-            </li>
-        `;
-        
-        // Connectivity metrics
-        if (metrics.diameter) {
-            html += `
-                <li class="d-flex justify-content-between">
-                    <span>Network Diameter:</span>
-                    <strong>${metrics.diameter}</strong>
-                </li>
-                <li class="d-flex justify-content-between">
-                    <span>Avg. Path Length:</span>
-                    <strong>${metrics.average_shortest_path.toFixed(2)}</strong>
-                </li>
-            `;
-        } else {
-            html += `
-                <li class="d-flex justify-content-between">
-                    <span>Largest Component Size:</span>
-                    <strong>${metrics.largest_component_size}</strong>
-                </li>
-                <li class="d-flex justify-content-between">
-                    <span>Component Diameter:</span>
-                    <strong>${metrics.largest_component_diameter}</strong>
-                </li>
-            `;
-        }
-        
-        // Centrality metrics
-        html += `
-            <li class="d-flex justify-content-between">
-                <span>Avg. Degree Centrality:</span>
-                <strong>${metrics.avg_degree_centrality.toFixed(4)}</strong>
-            </li>
-        `;
-        
-        if (metrics.avg_betweenness_centrality !== 'N/A') {
-            html += `
-                <li class="d-flex justify-content-between">
-                    <span>Avg. Betweenness Centrality:</span>
-                    <strong>${metrics.avg_betweenness_centrality.toFixed(4)}</strong>
-                </li>
-            `;
-        }
-        
-        // Community metrics
-        html += `
-            <li class="d-flex justify-content-between">
-                <span>Community Count:</span>
-                <strong>${metrics.community_count}</strong>
-            </li>
-        `;
-        
-        if (metrics.modularity !== 'N/A (community package not available)') {
-            html += `
-                <li class="d-flex justify-content-between">
-                    <span>Modularity:</span>
-                    <strong>${typeof metrics.modularity === 'number' ? metrics.modularity.toFixed(4) : metrics.modularity}</strong>
-                </li>
-            `;
-        }
-        
-        container.innerHTML = html;
-    }
-    
-    function createCourseEnrollmentChart(courseEnrollment) {
-        if (!courseEnrollment || courseEnrollment.length === 0) {
-            return;
-        }
-        
-        const ctx = document.getElementById('courseEnrollmentChart').getContext('2d');
-        
-        // Sort courses by enrollment count
-        courseEnrollment.sort((a, b) => b.student_count - a.student_count);
-        
-        // Prepare data for chart
-        const labels = courseEnrollment.map(course => course.name);
-        const counts = courseEnrollment.map(course => course.student_count);
-        
-        // Create chart
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Student Enrollment',
-                    data: counts,
-                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                },
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Course Enrollment Counts'
-                    }
-                }
-            }
-        });
-    }
-    
-    function createCourseGradesChart(courseGrades) {
-        if (!courseGrades || courseGrades.length === 0) {
-            return;
-        }
-        
-        const ctx = document.getElementById('courseGradesChart').getContext('2d');
-        
-        // Sort courses by average grade
-        courseGrades.sort((a, b) => b.avg_grade - a.avg_grade);
-        
-        // Prepare data for chart
-        const labels = courseGrades.map(course => course.name);
-        const grades = courseGrades.map(course => course.avg_grade);
-        
-        // Create color gradient based on grades
-        const colors = grades.map(grade => {
-            // Color gradient from red (low) to green (high)
-            const r = Math.floor(255 * (1 - grade / 100));
-            const g = Math.floor(255 * (grade / 100));
-            const b = 0;
-            return `rgba(${r}, ${g}, ${b}, 0.7)`;
-        });
-        
-        // Create chart
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Average Grade',
-                    data: grades,
-                    backgroundColor: colors,
-                    borderColor: colors.map(color => color.replace('0.7', '1')),
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100
-                    }
-                },
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Average Course Grades'
-                    }
-                }
-            }
-        });
-    }
-    
-    function displayCourseConnections(connections) {
-        const container = document.getElementById('courseConnectionsTable');
-        
-        if (!connections || connections.length === 0) {
-            container.innerHTML = `
-                <tr>
-                    <td colspan="4" class="text-center">No course connection data available.</td>
-                </tr>
-            `;
-            return;
-        }
-        
-        let html = '';
-        
-        connections.forEach(connection => {
-            // Calculate connection strength as percentage of smaller course enrollment
-            const strengthPercentage = Math.round((connection.shared_students / Math.min(
-                document.querySelector('canvas#courseEnrollmentChart').dataset.enrollments || 30
-            )) * 100);
-            
-            html += `
-                <tr>
-                    <td>
-                        <a href="javascript:void(0);" onclick="alert('Course detail would link to ' + connection.course1_id)">
-                            ${connection.course1_name}
-                        </a>
-                    </td>
-                    <td>
-                        <a href="javascript:void(0);" onclick="alert('Course detail would link to ' + connection.course2_id)">
-                            ${connection.course2_name}
-                        </a>
-                    </td>
-                    <td>${connection.shared_students}</td>
-                    <td>
-                        <div class="progress" style="height: 20px;">
-                            <div class="progress-bar bg-success" role="progressbar" 
-                                style="width: ${strengthPercentage}%;" 
-                                aria-valuenow="${strengthPercentage}" aria-valuemin="0" aria-valuemax="100">
-                                ${strengthPercentage}%
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        });
-        
-        container.innerHTML = html;
-    }
-</script>
+<!-- D3.js for network visualization -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<!-- Custom network visualization JS -->
+<script src="/static/network_simulation/js/course_network.js"></script>
 {% endblock %}

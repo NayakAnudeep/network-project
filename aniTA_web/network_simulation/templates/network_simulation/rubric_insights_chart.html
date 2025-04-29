@@ -1,0 +1,215 @@
+{% extends 'network_simulation/base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-bar me-2"></i> Rubric Performance Insights
+            </div>
+            <div class="card-body">
+                <div id="rubricInsightsChart" style="height: 450px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-exclamation-triangle me-2"></i> Most Problematic Rubric Items
+            </div>
+            <div class="card-body">
+                {% if rubrics %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Rubric Item</th>
+                                <th>Description</th>
+                                <th>Issue Frequency</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rubric in rubrics %}
+                            <tr>
+                                <td><strong>{{ rubric.name|truncatechars:30 }}</strong></td>
+                                <td>{{ rubric.description|truncatechars:50 }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress flex-grow-1" style="height: 8px;">
+                                            <div class="progress-bar bg-danger" role="progressbar" 
+                                                 style="width: {{ rubric.score_percentage|floatformat:0 }}%;" 
+                                                 aria-valuenow="{{ rubric.score_percentage }}" aria-valuemin="0" aria-valuemax="100">
+                                            </div>
+                                        </div>
+                                        <span class="ms-2 text-muted">{{ rubric.score_percentage|floatformat:1 }}%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> No rubric data available.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-lightbulb me-2"></i> Improvement Recommendations
+            </div>
+            <div class="card-body">
+                {% if rubrics %}
+                <ol class="list-group list-group-numbered">
+                    {% for rubric in rubrics|slice:":5" %}
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">{{ rubric.name }}</div>
+                            <p class="mb-1">{{ rubric.description }}</p>
+                            <div class="mt-2">
+                                <span class="badge bg-primary rounded-pill">{{ rubric.connections }} occurrences</span>
+                                <span class="badge bg-secondary rounded-pill">{{ rubric.avg_score|floatformat:1 }} avg. score</span>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ol>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> No recommendations available.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if rubrics %}
+        // Create data for the rubric insights chart
+        const rubricData = [];
+        const rubricNames = [];
+        const rubricScores = [];
+        const rubricCounts = [];
+        
+        {% for rubric in rubrics %}
+        rubricNames.push("{{ rubric.name|truncatechars:25|escapejs }}");
+        rubricScores.push({{ rubric.avg_score|default:"0"|floatformat:1 }});
+        rubricCounts.push({{ rubric.connections }});
+        {% endfor %}
+        
+        // Sort by count in descending order
+        const indices = Array.from(Array(rubricNames.length).keys())
+            .sort((a, b) => rubricCounts[b] - rubricCounts[a]);
+            
+        const sortedNames = indices.map(i => rubricNames[i]);
+        const sortedScores = indices.map(i => rubricScores[i]);
+        const sortedCounts = indices.map(i => rubricCounts[i]);
+        
+        // Only show top 10 for the chart
+        const topNames = sortedNames.slice(0, 10);
+        const topScores = sortedScores.slice(0, 10);
+        const topCounts = sortedCounts.slice(0, 10);
+        
+        // Calculate normalized problem score (inverted scores)
+        const problemScores = topScores.map(score => Math.max(0, 100 - score));
+        
+        const options = {
+            series: [{
+                name: 'Issue Frequency',
+                type: 'column',
+                data: topCounts
+            }, {
+                name: 'Problem Score',
+                type: 'line',
+                data: problemScores
+            }],
+            chart: {
+                height: 400,
+                type: 'line',
+                toolbar: {
+                    show: false
+                }
+            },
+            stroke: {
+                width: [0, 4],
+                curve: 'smooth'
+            },
+            plotOptions: {
+                bar: {
+                    columnWidth: '60%',
+                    dataLabels: {
+                        position: 'top'
+                    }
+                }
+            },
+            dataLabels: {
+                enabled: true,
+                enabledOnSeries: [0],
+                formatter: function (val) {
+                    return val;
+                },
+                offsetY: -20,
+                style: {
+                    fontSize: '12px',
+                    colors: ["#304758"]
+                }
+            },
+            colors: ['#6c757d', '#dc3545'],
+            labels: topNames,
+            xaxis: {
+                type: 'category',
+                labels: {
+                    rotate: -45,
+                    style: {
+                        fontSize: '12px'
+                    }
+                }
+            },
+            yaxis: [{
+                title: {
+                    text: 'Issue Frequency',
+                },
+                min: 0
+            }, {
+                opposite: true,
+                title: {
+                    text: 'Problem Score'
+                },
+                min: 0,
+                max: 100
+            }],
+            title: {
+                text: 'Rubric Problem Analysis',
+                align: 'center',
+                style: {
+                    fontSize: '16px'
+                }
+            },
+            legend: {
+                position: 'top'
+            },
+            tooltip: {
+                shared: true,
+                intersect: false
+            }
+        };
+
+        const chart = new ApexCharts(document.querySelector("#rubricInsightsChart"), options);
+        chart.render();
+        {% endif %}
+    });
+</script>
+{% endblock %}

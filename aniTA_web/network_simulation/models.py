@@ -1,4 +1,5 @@
 from django.db import models
+import json
 
 class Student(models.Model):
     student_id = models.CharField(max_length=10, primary_key=True)
@@ -54,3 +55,20 @@ class Assessment(models.Model):
     
     def __str__(self):
         return f"{self.type} for {self.student.name} in {self.course.name}"
+        
+# New models for storing network visualization data
+class NetworkData(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    data_type = models.CharField(max_length=50)  # e.g., 'student_instructor_network', 'course_network'
+    json_data = models.TextField()  # Stores the JSON data
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def set_data(self, data_dict):
+        self.json_data = json.dumps(data_dict)
+    
+    def get_data(self):
+        return json.loads(self.json_data)
+    
+    def __str__(self):
+        return f"{self.name} ({self.data_type})"

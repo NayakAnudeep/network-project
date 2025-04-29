@@ -10,7 +10,7 @@ from .claude_integration import (
     get_top_sections_for_student,
     get_problematic_sections_for_instructor
 )
-import markdown
+from .markdown_wrapper import convert_markdown_to_html
 import re
 
 @login_required
@@ -92,11 +92,10 @@ def source_material_detail(request, material_id):
         ))
         
         # Convert markdown content to HTML
-        md = markdown.Markdown(extensions=['extra'])
-        material_content_html = md.convert(material.get('content', ''))
+        material_content_html = convert_markdown_to_html(material.get('content', ''))
         
         for section in sections:
-            section['html_content'] = md.convert(section.get('content', ''))
+            section['html_content'] = convert_markdown_to_html(section.get('content', ''))
         
         context = {
             'material': material,
@@ -163,8 +162,7 @@ def section_detail(request, section_id):
         section = sections[0]
         
         # Convert markdown content to HTML
-        md = markdown.Markdown(extensions=['extra'])
-        section_content_html = md.convert(section.get('content', ''))
+        section_content_html = convert_markdown_to_html(section.get('content', ''))
         
         # Get students who should focus on this section (made related mistakes)
         students_query = """
@@ -260,10 +258,9 @@ def student_section_recommendations(request, student_id):
         ))
         
         # Convert to HTML
-        md = markdown.Markdown(extensions=['extra'])
         for section in recommended_sections:
             if 'content_preview' in section:
-                section['html_preview'] = md.convert(section['content_preview'])
+                section['html_preview'] = convert_markdown_to_html(section['content_preview'])
         
         context = {
             'student': student,
@@ -312,10 +309,9 @@ def instructor_problem_sections(request, instructor_id):
         problem_sections = get_problematic_sections_for_instructor(instructor_id, limit=10)
         
         # Convert to HTML
-        md = markdown.Markdown(extensions=['extra'])
         for section in problem_sections:
             if 'content_preview' in section:
-                section['html_preview'] = md.convert(section['content_preview'])
+                section['html_preview'] = convert_markdown_to_html(section['content_preview'])
         
         # Get grading inconsistencies
         inconsistencies_query = """

@@ -1,4 +1,5 @@
 {% extends 'network_simulation/base.html' %}
+{% load network_tags %}
 
 {% block title %}Instructor Analytics Dashboard{% endblock %}
 
@@ -13,56 +14,15 @@
 <div class="row mb-4">
     <div class="col-md-12">
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <div>
-                    <i class="fas fa-fire me-2"></i> Mistake Heatmap
-                </div>
-                <div class="btn-group btn-group-sm" role="group">
-                    {% for class_code, course_data in heatmap.items %}
-                    <button type="button" class="btn btn-outline-primary course-filter {% if forloop.first %}active{% endif %}" 
-                            data-course="{{ class_code }}">
-                        {{ class_code }}
-                    </button>
-                    {% endfor %}
-                </div>
+            <div class="card-header">
+                <i class="fas fa-chart-bar me-2"></i> Rubric Performance Insights
             </div>
             <div class="card-body">
-                {% if heatmap %}
-                <div class="row">
-                    <div class="col-md-8">
-                        <div id="heatmapChart" style="height: 400px;"></div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="course-info mt-3">
-                            {% for class_code, course_data in heatmap.items %}
-                            <div class="course-details" data-course="{{ class_code }}" 
-                                 {% if not forloop.first %}style="display: none;"{% endif %}>
-                                <h5>{{ course_data.title }}</h5>
-                                <p>
-                                    <i class="fas fa-file-alt me-2"></i> 
-                                    <strong>Submissions:</strong> {{ course_data.submission_count }}
-                                </p>
-                                <div class="criteria-summary mt-4">
-                                    <h6>Top Problem Areas:</h6>
-                                    <ul class="list-group">
-                                        {% for criteria, stats in course_data.criteria_data.items|dictsort:"1.count"|slice:"-3:" %}
-                                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                                            {{ criteria }}
-                                            <span class="badge bg-primary rounded-pill">
-                                                {{ stats.percentage|floatformat:1 }}%
-                                            </span>
-                                        </li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
+                {% if common_mistakes %}
+                <div id="rubricPerformanceChart" style="height: 450px;"></div>
                 {% else %}
                 <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i> No heatmap data available yet.
+                    <i class="fas fa-info-circle me-2"></i> No rubric performance data available yet.
                 </div>
                 {% endif %}
             </div>
@@ -74,7 +34,7 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <i class="fas fa-exclamation-triangle me-2"></i> Top Common Mistakes
+                <i class="fas fa-exclamation-triangle me-2"></i> Most Problematic Rubric Items
             </div>
             <div class="card-body">
                 {% if common_mistakes %}
@@ -82,25 +42,25 @@
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Question</th>
-                                <th>Issue</th>
-                                <th>Frequency</th>
+                                <th>Rubric Item</th>
+                                <th>Description</th>
+                                <th>Connections</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for mistake in common_mistakes %}
+                            {% for rubric in common_mistakes %}
                             <tr>
-                                <td>{{ mistake.question|truncatechars:30 }}</td>
-                                <td>{{ mistake.justification|truncatechars:50 }}</td>
+                                <td><strong>{{ rubric.name|truncatechars:30 }}</strong></td>
+                                <td>{{ rubric.description|truncatechars:50 }}</td>
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <div class="progress flex-grow-1" style="height: 8px;">
                                             <div class="progress-bar" role="progressbar" 
-                                                 style="width: {{ mistake.count|percentage_of:most_common_count }}%; background-color: var(--primary-color);" 
-                                                 aria-valuenow="{{ mistake.count }}" aria-valuemin="0" aria-valuemax="{{ most_common_count }}">
+                                                 style="width: {{ rubric.connections|percentage_of:most_common_count }}%; background-color: var(--primary-color);" 
+                                                 aria-valuenow="{{ rubric.connections }}" aria-valuemin="0" aria-valuemax="{{ most_common_count }}">
                                             </div>
                                         </div>
-                                        <span class="ms-2 text-muted">{{ mistake.count }}</span>
+                                        <span class="ms-2 text-muted">{{ rubric.connections }}</span>
                                     </div>
                                 </td>
                             </tr>
@@ -110,7 +70,7 @@
                 </div>
                 {% else %}
                 <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i> No common mistakes data available.
+                    <i class="fas fa-info-circle me-2"></i> No rubric data available.
                 </div>
                 {% endif %}
             </div>
@@ -136,7 +96,7 @@
                                 <div class="d-flex justify-content-between w-100">
                                     <div>{{ item.question|truncatechars:40 }}</div>
                                     <div class="badge bg-warning text-dark ms-2">
-                                        {{ item.inconsistency.score_difference|floatformat:1 }} point difference
+                                        {{ item.inconsistency.score_difference|floatformat:2 }} point difference
                                     </div>
                                 </div>
                             </button>
@@ -149,7 +109,7 @@
                                     <div class="col-md-6">
                                         <div class="card mb-2">
                                             <div class="card-header bg-light">
-                                                <strong>Case 1:</strong> {{ item.inconsistency.case1.score }} points
+                                                <strong>Case 1:</strong> {{ item.inconsistency.case1.score|floatformat:2 }} points
                                             </div>
                                             <div class="card-body">
                                                 <p class="mb-0">{{ item.inconsistency.case1.justification }}</p>
@@ -159,7 +119,7 @@
                                     <div class="col-md-6">
                                         <div class="card">
                                             <div class="card-header bg-light">
-                                                <strong>Case 2:</strong> {{ item.inconsistency.case2.score }} points
+                                                <strong>Case 2:</strong> {{ item.inconsistency.case2.score|floatformat:2 }} points
                                             </div>
                                             <div class="card-body">
                                                 <p class="mb-0">{{ item.inconsistency.case2.justification }}</p>
@@ -186,7 +146,7 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <i class="fas fa-project-diagram me-2"></i> Mistake Clusters Analysis
+                <i class="fas fa-project-diagram me-2"></i> Rubric-Based Mistake Clusters
             </div>
             <div class="card-body">
                 {% if mistake_clusters %}
@@ -205,21 +165,15 @@
                                     <div class="col-6">
                                         <div class="text-center mb-3">
                                             <div class="fs-4">{{ mistake_clusters.stats.total_clusters }}</div>
-                                            <div class="text-muted small">Clusters</div>
+                                            <div class="text-muted small">Rubric Clusters</div>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="row">
-                                    <div class="col-6">
+                                    <div class="col-12">
                                         <div class="text-center">
-                                            <div class="fs-4">{{ mistake_clusters.stats.total_connections }}</div>
-                                            <div class="text-muted small">Connections</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="text-center">
-                                            <div class="fs-4">{{ mistake_clusters.stats.avg_cluster_size|floatformat:1 }}</div>
-                                            <div class="text-muted small">Avg. Size</div>
+                                            <div class="fs-4">{{ mistake_clusters.stats.avg_cluster_size|floatformat:2 }}</div>
+                                            <div class="text-muted small">Avg. Mistakes per Rubric</div>
                                         </div>
                                     </div>
                                 </div>
@@ -231,7 +185,7 @@
                     </div>
                 </div>
                 
-                <h5 class="mt-4 mb-3">Cluster Details</h5>
+                <h5 class="mt-4 mb-3">Rubric Cluster Details</h5>
                 <div class="accordion" id="clusterAccordion">
                     {% for cluster in mistake_clusters.clusters %}
                     <div class="accordion-item">
@@ -242,14 +196,11 @@
                                     aria-expanded="false" 
                                     aria-controls="clusterCollapse{{ forloop.counter }}">
                                 <div class="d-flex justify-content-between w-100 align-items-center">
-                                    <div><strong>Cluster {{ forloop.counter }}</strong> ({{ cluster.size }} mistakes)</div>
+                                    <div><strong>{{ cluster.name }}</strong> ({{ cluster.size }} mistakes)</div>
                                     <div class="d-flex align-items-center">
                                         <span class="badge bg-light text-dark me-2">
-                                            Avg score: {{ cluster.avg_score|floatformat:1 }}
+                                            Avg score: {{ cluster.avg_score|floatformat:2 }}
                                         </span>
-                                        {% for criteria in cluster.top_criteria %}
-                                        <span class="badge bg-primary me-1">{{ criteria }}</span>
-                                        {% endfor %}
                                     </div>
                                 </div>
                             </button>
@@ -258,29 +209,27 @@
                              aria-labelledby="clusterHeading{{ forloop.counter }}" 
                              data-bs-parent="#clusterAccordion">
                             <div class="accordion-body">
+                                <p class="mb-3">{{ cluster.description }}</p>
+                                
                                 <table class="table table-sm">
                                     <thead>
                                         <tr>
-                                            <th>Question</th>
+                                            <th>Assignment/Exam</th>
                                             <th>Score</th>
-                                            <th>Criteria</th>
+                                            <th width="40%">Feedback</th>
                                             <th>Importance</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {% for node in cluster.nodes %}
                                         <tr>
-                                            <td>{{ node.label|truncatechars:50 }}</td>
-                                            <td>{{ node.score }}</td>
-                                            <td>
-                                                {% for c in node.criteria %}
-                                                <span class="badge bg-light text-primary">{{ c }}</span>
-                                                {% endfor %}
-                                            </td>
+                                            <td>{{ node.label|truncatechars:30 }}</td>
+                                            <td>{{ node.score|floatformat:2 }}</td>
+                                            <td><small>{{ node.justification|truncatechars:80 }}</small></td>
                                             <td>
                                                 <div class="progress" style="height: 8px;">
                                                     <div class="progress-bar" role="progressbar" 
-                                                         style="width: {{ node.importance|multiply:100|floatformat:1 }}%; background-color: var(--primary-color);">
+                                                         style="width: {{ node.importance|multiply:100|floatformat:2 }}%; background-color: var(--primary-color);">
                                                     </div>
                                                 </div>
                                             </td>
@@ -308,157 +257,106 @@
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        {% if heatmap %}
-        // Process heatmap data
-        const heatmapData = {};
-        const allCategories = new Set();
+        {% if common_mistakes %}
+        // Process rubric data for the performance chart
+        const rubricNames = [];
+        const rubricScores = [];
+        const rubricConnections = [];
         
-        {% for class_code, course_data in heatmap.items %}
-        heatmapData["{{ class_code }}"] = {
-            title: "{{ course_data.title }}",
-            data: []
-        };
-        
-        {% for criteria, stats in course_data.criteria_data.items %}
-        heatmapData["{{ class_code }}"].data.push({
-            criteria: "{{ criteria }}",
-            percentage: {{ stats.percentage|floatformat:1 }},
-            count: {{ stats.count }}
-        });
-        allCategories.add("{{ criteria }}");
-        {% endfor %}
+        {% for rubric in common_mistakes %}
+        rubricNames.push("{{ rubric.name|truncatechars:25|escapejs }}");
+        rubricScores.push({{ rubric.degree|floatformat:2 }});  // Use degree as the score
+        rubricConnections.push({{ rubric.connections|floatformat:0 }});
         {% endfor %}
         
-        // Convert to array and sort by criteria name
-        const categoriesArray = Array.from(allCategories).sort();
-        
-        // Initialize with first course
-        let currentCourse = "{{ heatmap.keys|first }}";
-        renderHeatmap(currentCourse);
-        
-        // Course filter buttons
-        document.querySelectorAll('.course-filter').forEach(btn => {
-            btn.addEventListener('click', function() {
-                // Update active class
-                document.querySelectorAll('.course-filter').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                
-                // Update visible course info
-                document.querySelectorAll('.course-details').forEach(div => {
-                    div.style.display = 'none';
-                });
-                const courseCode = this.dataset.course;
-                document.querySelector(`.course-details[data-course="${courseCode}"]`).style.display = 'block';
-                
-                // Render heatmap for selected course
-                renderHeatmap(courseCode);
-            });
+        // Calculate problem scores (100 - inverted normalized score)
+        const maxConnections = Math.max(...rubricConnections);
+        const normalizedConnections = rubricConnections.map(c => {
+            // Format to 2 decimal places
+            return parseFloat(((c / maxConnections) * 100).toFixed(2));
         });
         
-        function renderHeatmap(courseCode) {
-            const courseData = heatmapData[courseCode];
-            if (!courseData) return;
-            
-            // Create a map for quick lookup
-            const dataMap = {};
-            courseData.data.forEach(item => {
-                dataMap[item.criteria] = item.percentage;
-            });
-            
-            // Create data array with all categories
-            const seriesData = categoriesArray.map(criteria => {
-                return {
-                    x: criteria,
-                    y: dataMap[criteria] || 0
-                };
-            }).sort((a, b) => b.y - a.y).slice(0, 10); // Top 10 by percentage
-            
-            // Extract categories and values for chart
-            const chartCategories = seriesData.map(item => item.x);
-            const chartValues = seriesData.map(item => item.y);
-            
-            // Destroy previous chart if exists
-            if (window.heatmapChart) {
-                window.heatmapChart.destroy();
-            }
-            
-            // Create heatmap chart
-            const options = {
-                series: [{
-                    name: 'Mistake Frequency',
-                    data: chartValues
-                }],
-                chart: {
-                    type: 'bar',
-                    height: 400,
-                    toolbar: {
-                        show: false
-                    }
-                },
-                plotOptions: {
-                    bar: {
-                        horizontal: true,
-                        distributed: true,
-                        barHeight: '80%',
-                        dataLabels: {
-                            position: 'bottom'
-                        }
-                    }
-                },
-                dataLabels: {
-                    enabled: true,
-                    formatter: function(val) {
-                        return val.toFixed(1) + '%';
-                    },
-                    offsetX: 10,
-                    style: {
-                        fontSize: '12px',
-                        colors: ['#fff']
-                    }
-                },
-                colors: [
-                    function({ value }) {
-                        if (value < 20) return '#a5d6a7';
-                        else if (value < 40) return '#ffe082';
-                        else if (value < 60) return '#ffab91';
-                        else return '#ef9a9a';
-                    }
-                ],
-                xaxis: {
-                    categories: chartCategories,
-                    labels: {
-                        formatter: function(val) {
-                            return val.toFixed(1) + '%';
-                        }
-                    }
-                },
-                yaxis: {
-                    labels: {
-                        formatter: function(val) {
-                            // Truncate long criterion names
-                            return val.length > 25 ? val.substr(0, 25) + '...' : val;
-                        }
-                    }
-                },
-                title: {
-                    text: `Mistake Frequency for ${courseCode}`,
-                    align: 'center',
-                    style: {
-                        fontSize: '14px'
-                    }
-                },
-                tooltip: {
-                    y: {
-                        formatter: function(val) {
-                            return val.toFixed(1) + '%';
-                        }
+        // Create the performance chart
+        const options = {
+            series: [{
+                name: 'Issue Frequency',
+                type: 'column',
+                data: rubricConnections
+            }, {
+                name: 'Problem Score',
+                type: 'line',
+                data: normalizedConnections
+            }],
+            chart: {
+                height: 450,
+                type: 'line',
+                toolbar: {
+                    show: false
+                }
+            },
+            stroke: {
+                width: [0, 4],
+                curve: 'smooth'
+            },
+            plotOptions: {
+                bar: {
+                    columnWidth: '60%',
+                    dataLabels: {
+                        position: 'top'
                     }
                 }
-            };
+            },
+            colors: ['#6c757d', '#dc3545'],
+            labels: rubricNames,
+            xaxis: {
+                type: 'category',
+                labels: {
+                    rotate: -45,
+                    style: {
+                        fontSize: '12px'
+                    }
+                }
+            },
+            yaxis: [{
+                title: {
+                    text: 'Issue Frequency',
+                },
+                min: 0
+            }, {
+                opposite: true,
+                title: {
+                    text: 'Problem Score'
+                },
+                min: 0,
+                max: 100
+            }],
+            title: {
+                text: 'Rubric Item Performance Analysis',
+                align: 'center',
+                style: {
+                    fontSize: '16px'
+                }
+            },
+            legend: {
+                position: 'top'
+            },
+            tooltip: {
+                shared: true,
+                intersect: false,
+                y: [{
+                    formatter: function(val) {
+                        return val.toFixed(0) + " occurrences";
+                    }
+                }, {
+                    formatter: function(val) {
+                        return val.toFixed(2) + "% severity";
+                    }
+                }]
+            }
+        };
 
-            window.heatmapChart = new ApexCharts(document.querySelector("#heatmapChart"), options);
-            window.heatmapChart.render();
-        }
+        const performanceChart = new ApexCharts(document.querySelector("#rubricPerformanceChart"), options);
+        performanceChart.render();
         {% endif %}
         
         {% if mistake_clusters %}
@@ -467,16 +365,16 @@
         
         {% for cluster in mistake_clusters.clusters %}
         clusterData.push({
-            x: "Cluster {{ forloop.counter }}",
-            y: {{ cluster.avg_score|floatformat:1 }},
+            x: "{{ cluster.name|escapejs }}",
+            y: {{ cluster.avg_score|floatformat:2 }},
             z: {{ cluster.size }},
-            criteria: [{% for c in cluster.top_criteria %}"{{ c }}"{% if not forloop.last %}, {% endif %}{% endfor %}]
+            description: "{{ cluster.description|escapejs }}"
         });
         {% endfor %}
         
         const bubbleOptions = {
             series: [{
-                name: 'Clusters',
+                name: 'Rubric Clusters',
                 data: clusterData
             }],
             chart: {
@@ -502,7 +400,7 @@
                 }
             },
             title: {
-                text: 'Mistake Clusters by Size and Score',
+                text: 'Rubric Clusters by Size and Score',
                 align: 'center',
                 style: {
                     fontSize: '14px'
@@ -512,7 +410,7 @@
                 type: 'category',
                 labels: {
                     formatter: function(val) {
-                        return val;
+                        return val.length > 15 ? val.substr(0, 15) + '...' : val;
                     }
                 }
             },
@@ -531,7 +429,7 @@
                             <div><strong>${data.x}</strong></div>
                             <div>Size: ${data.z} mistakes</div>
                             <div>Avg. Score: ${data.y}</div>
-                            <div>Top Criteria: ${data.criteria.join(', ')}</div>
+                            <div>Description: ${data.description}</div>
                         </div>
                     `;
                 }

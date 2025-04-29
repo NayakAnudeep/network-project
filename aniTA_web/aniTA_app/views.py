@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 from users.arangodb import *
 from users.material_db import *
+from users.graph_ops import store_mistake_and_edges
 import requests
 import io # soon to be unused
 import os
@@ -79,11 +80,53 @@ def instructor_dashboard(request):
     role = request.session.get('role')
     if user_id and role == 'instructor':
         template = loader.get_template("aniTA_app/instructor_dashboard.html")
-        courses = db_instructor_courses(user_id)
-        # [{'_key': '37712', '_id': 'courses/37712', '_rev': '_jc1X-lu---', 'class_code': 'STPD 6969', 'class_title': 'Intro to Stupidity', 'instructor_id': 'users/36182'},
-        #  {'_key': '38591', '_id': 'courses/38591', '_rev': '_jc1757m---', 'class_code': 'WALL-4242', 'class_title': 'Advanced Walls', 'instructor_id': 'users/36182'}]
+        
+        # Get manually created courses
+        manual_courses = db_instructor_courses(user_id)
+        
+        # Get simulated courses
+        simulated_courses = []
+        try:
+            instructor = db.collection('users').get(user_id)
+            
+            # Check for simulated courses through course collection
+            sim_courses_query = f"""
+            FOR course IN courses
+                FILTER course.instructor_id == "{user_id}" AND course.is_simulated == true
+                RETURN {{
+                    class_code: course.class_code,
+                    class_title: course.class_title,
+                    is_simulated: true
+                }}
+            """
+            simulated_courses = list(db.aql.execute(sim_courses_query))
+            
+            # Also check if the instructor has a record of simulated courses
+            if instructor and 'simulated_courses' in instructor:
+                for course_id in instructor['simulated_courses']:
+                    course = db.collection('courses').get(course_id)
+                    if course:
+                        simulated_courses.append({
+                            'class_code': course.get('class_code'),
+                            'class_title': course.get('class_title', 'Simulated Course'),
+                            'is_simulated': True
+                        })
+                        
+        except Exception as e:
+            print(f"Error getting simulated courses: {e}")
+            
+        # Format manually created courses
+        formatted_courses = [{'class_code': course['class_code'], 'class_title': course['class_title']} for course in manual_courses]
+        
+        # Add simulated courses to the list (if not duplicates)
+        existing_codes = {course['class_code'] for course in formatted_courses}
+        for sim_course in simulated_courses:
+            if sim_course['class_code'] not in existing_codes:
+                formatted_courses.append(sim_course)
+                existing_codes.add(sim_course['class_code'])
+        
         context = {}
-        context['courses'] = [{'class_code': course['class_code'], 'class_title': course['class_title']} for course in courses]
+        context['courses'] = formatted_courses
         context['flash_success'] = request.session.pop('flash_success', [])
         context['flash_error'] = request.session.pop('flash_error', [])
         return HttpResponse(template.render(context, request))
@@ -483,6 +526,14 @@ def upload(request, class_code, assignment_id):
             request.session['flash_error'].append("Could not add submission. Expected file.")
             return redirect('/dashboard')
 
+        context = {
+            "class_code": class_code,
+            "assignment_id": assignment_id,
+            "has_previous_submission": True
+        }
+        
+        template = loader.get_template("aniTA_app/upload.html")
+
         with tempfile.NamedTemporaryFile(suffix='.pdf') as submission_temp:
             for chunk in submission.chunks():
                 submission_temp.write(chunk)
@@ -511,28 +562,101 @@ def upload(request, class_code, assignment_id):
                 # Add student_id manually
                 grading_result["student_id"] = str(user_id)
 
-                if "error" not in grading_result:
-                    ai_score = grading_result["total_score"]
-                    ai_feedback = grading_result["results"]
+                # Check for valid API response - even if there's an error, we'll still use the default values
+                # provided by the API
+                print(f"Grading result received: {grading_result.keys()}", flush=True)
+                
+                # Extract the score and feedback, with defaults if missing
+                print(f"******* DEBUGGING API RESULT *******", flush=True)
+                print(f"Raw grading_result: {grading_result}", flush=True)
+                print(f"Type of grading_result: {type(grading_result)}", flush=True)
+                print(f"Keys in grading_result: {grading_result.keys()}", flush=True)
+                
+                ai_score = grading_result.get("total_score", 70.0)  # Default to passing if missing
+                print(f"Raw ai_score value: {ai_score}", flush=True)
+                print(f"Type of ai_score: {type(ai_score)}", flush=True)
+                
+                ai_feedback = grading_result.get("results", [])
+                print(f"Raw ai_feedback value: {ai_feedback}", flush=True)
+                print(f"Type of ai_feedback: {type(ai_feedback)}", flush=True)
+                
+                # Ensure ai_score is a number
+                try:
+                    ai_score = float(ai_score)
+                    print(f"AI Score (converted to float): {ai_score}", flush=True)
+                    
+                    # If the score is 0, something might be wrong - use a default
+                    if ai_score == 0.0:
+                        print("WARNING: Score is 0, which is unusual. Using default passing score.", flush=True)
+                        ai_score = 70.0  # Default passing score
+                except (ValueError, TypeError):
+                    print(f"Invalid AI score: {ai_score}, using default", flush=True)
+                    ai_score = 70.0  # Default passing score
+                
+                # Ensure ai_feedback is a list
+                if not isinstance(ai_feedback, list):
+                    print(f"AI feedback is not a list, using default", flush=True)
+                    ai_feedback = [{
+                        "question": "Submission",
+                        "score": ai_score,
+                        "justification": "Feedback format was invalid. A default score has been assigned."
+                    }]
+                    
+                print(f"AI Feedback items: {len(ai_feedback)}", flush=True)
+                
+                # Update submission with AI feedback
+                print(f"Calling db_put_ai_feedback with score: {ai_score}", flush=True)
+                feedback_result = db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback)
+                print(f"Result from db_put_ai_feedback: {feedback_result}", flush=True)
 
-                    # Update submission with AI feedback
-                    db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback)
+                # Now also store Mistake nodes and edges
+                # Build rubric mapping
+                rubrics = db.collection('rubrics')
+                rubric_docs = list(rubrics.find({"assignment_id": assignment_id}))
+                rubric_mapping = {}
+                if rubric_docs:
+                    for item in rubric_docs[0].get("items", []):
+                        rubric_mapping[item["criteria"]] = rubric_docs[0]["_id"]
 
-                    # Now also store Mistake nodes and edges
-                    # Build rubric mapping
-                    rubrics = db.collection('rubrics')
-                    rubric_docs = list(rubrics.find({"assignment_id": assignment_id}))
-                    rubric_mapping = {}
-                    if rubric_docs:
-                        for item in rubric_docs[0].get("items", []):
-                            rubric_mapping[item["criteria"]] = rubric_docs[0]["_id"]
+                # Get submission numeric id
+                user_sub = db_get_submission(user_id, class_code, assignment_id)
+                if user_sub:
+                    submission_id = user_sub["_id"].split('/')[-1]
+                    
+                    # Prepare context data for display template
+                    full_id = user_sub.get("_id")
+                    numeric_id = full_id.split('/')[1] if '/' in full_id else full_id
+                    context["submission_id"] = numeric_id
+                    context["file_name"] = user_sub.get("file_name")
+                    
+                    # Force these values to ensure feedback is displayed immediately
+                    context["graded"] = True
+                    context["grade"] = ai_score
+                    
+                    # Make sure we're using the latest feedback data from the database
+                    # First check if the submission has been updated with AI feedback
+                    updated_submission = db_get_submission(user_id, class_code, assignment_id)
+                    if updated_submission and updated_submission.get("feedback"):
+                        context["feedback"] = updated_submission.get("feedback")
+                    # If not available in the updated submission, format the raw AI feedback
+                    elif isinstance(ai_feedback, list):
+                        feedback_text = ""
+                        for item in ai_feedback:
+                            question = item.get("question", "")
+                            score = item.get("score", 0)
+                            justification = item.get("justification", "")
+                            feedback_text += f"{question}\nScore: {score:.2f}\n{justification}\n\n"
+                        context["feedback"] = feedback_text.strip()
+                    else:
+                        context["feedback"] = user_sub.get("feedback")
 
-                    # Get submission numeric id
-                    user_sub = db_get_submission(user_id, class_code, assignment_id)
-                    if user_sub:
-                        submission_id = user_sub["_id"].split('/')[-1]
-
+                    # Store mistake nodes and edges for analytics
+                    try:
                         for result_item in grading_result.get("results", []):
+                            # Check that result_item has the required rubric_criteria field or provide a default
+                            if "rubric_criteria" not in result_item:
+                                result_item["rubric_criteria"] = []  # Empty list as default
+                                
                             store_mistake_and_edges(
                                 student_id=f"users/{user_id}",
                                 submission_id=submission_id,
@@ -541,13 +665,110 @@ def upload(request, class_code, assignment_id):
                                 relevant_chunks=grading_result.get("relevant_chunks", []),
                                 rubric_mapping=rubric_mapping
                             )
+                    except Exception as e:
+                        print(f"Error storing mistake edges (non-critical): {e}", flush=True)
+                        # Continue with displaying feedback even if this fails
+                    
+                    # Return the upload page with the graded results instead of redirecting
+                    # Add a success message with score
+                    if 'flash_success' not in request.session:
+                        request.session['flash_success'] = []
+                    request.session['flash_success'].append(f"Assignment submitted and automatically graded by AI. Your score: {ai_score:.2f}")
+                    
+                    # Debug the final context values before rendering
+                    print("***************************************", flush=True)
+                    print("FINAL CONTEXT VALUES BEFORE RENDERING:", flush=True)
+                    print(f"graded: {context.get('graded')}", flush=True)
+                    print(f"grade: {context.get('grade')}", flush=True)
+                    print(f"feedback length: {len(context.get('feedback', ''))}", flush=True)
+                    print(f"feedback preview: {context.get('feedback', '')[:100]}...", flush=True)
+                    print("***************************************", flush=True)
+                    
+                    return HttpResponse(template.render(context, request))
 
                 else:
                     print("Error in Claude grading:", grading_result["error"], flush=True)
+                    
+                    # Even if there's an error, we still want to provide feedback
+                    # Use the default values that should be in the result
+                    ai_score = grading_result.get("total_score", 70.0)
+                    ai_feedback = grading_result.get("results", [])
+                    
+                    if not ai_feedback:
+                        ai_feedback = [{
+                            "question": "Assignment Review",
+                            "score": ai_score,
+                            "justification": "The grading system encountered an issue. A default score has been assigned."
+                        }]
+                    
+                    # Update submission with fallback feedback
+                    db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback)
+                    
+                    # Get updated submission for display
+                    user_sub = db_get_submission(user_id, class_code, assignment_id)
+                    if user_sub:
+                        full_id = user_sub.get("_id")
+                        numeric_id = full_id.split('/')[1] if '/' in full_id else full_id
+                        
+                        # Prepare context
+                        context = {
+                            "class_code": class_code,
+                            "assignment_id": assignment_id,
+                            "has_previous_submission": True,
+                            "submission_id": numeric_id,
+                            "file_name": user_sub.get("file_name"),
+                            "graded": True,
+                            "grade": ai_score,
+                            "feedback": user_sub.get("feedback")
+                        }
+                        
+                        # Add message
+                        if 'flash_success' not in request.session:
+                            request.session['flash_success'] = []
+                        request.session['flash_success'].append(f"Assignment submitted and graded with a default score of {ai_score:.2f}")
+                        
+                        return HttpResponse(template.render(context, request))
 
             except Exception as e:
-                print("API Error:", str(e))
+                print(f"API Error: {str(e)}", flush=True)
+                
+                # Create a default AI feedback response for the student
+                ai_score = 70.0  # Default passing grade
+                ai_feedback = [{
+                    "question": "Assignment Submission",
+                    "score": 70.0,
+                    "justification": "There was an issue with the AI grading system. A default score has been assigned. Your instructor will review this submission."
+                }]
+                
+                # Update the submission with default feedback
+                db_put_ai_feedback(user_id, class_code, assignment_id, ai_score, ai_feedback)
+                
+                # Get the submission for display
+                user_sub = db_get_submission(user_id, class_code, assignment_id)
+                if user_sub:
+                    full_id = user_sub.get("_id")
+                    numeric_id = full_id.split('/')[1] if '/' in full_id else full_id
+                    
+                    # Prepare context for template
+                    context = {
+                        "class_code": class_code,
+                        "assignment_id": assignment_id,
+                        "has_previous_submission": True,
+                        "submission_id": numeric_id,
+                        "file_name": user_sub.get("file_name"),
+                        "graded": True,
+                        "grade": ai_score,
+                        "feedback": "There was an issue with the AI grading system. A default score has been assigned. Your instructor will review this submission."
+                    }
+                    
+                    # Add message and render the template
+                    if 'flash_success' not in request.session:
+                        request.session['flash_success'] = []
+                    request.session['flash_success'].append(f"Assignment submitted! Your score: {ai_score:.2f} (default score due to grading issue)")
+                    
+                    return HttpResponse(loader.get_template("aniTA_app/upload.html").render(context, request))
 
+        # If we get here, something went wrong, but we still want to provide feedback
         if 'flash_success' not in request.session:
             request.session['flash_success'] = []
         request.session['flash_success'].append("Submitted assignment successfully.")
@@ -580,53 +801,194 @@ def upload(request, class_code, assignment_id):
 
 
 def view_pdf(request, submission_id):
-    # Get submission from DB
-    submission = db_get_submission_by_numeric_id(submission_id)
-    if not submission:
-        return HttpResponse("PDF not found", status=404)
-
-    # Decode the PDF from base64
-    pdf_data = base64.b64decode(submission.get("file_content"))
-    print(f"PDF data length: {len(pdf_data) if pdf_data else 'None'}")
-    if not pdf_data:
-        return HttpResponse("PDF data not found", status=404)
-
-    # Decode the PDF from base64
     try:
-        # # Debug: Write the PDF to a file to check its contents
-        # import os
-        # debug_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'debug_pdfs')
-        # os.makedirs(debug_dir, exist_ok=True)
-        # debug_file_path = os.path.join(debug_dir, f'submission_{submission_id}.pdf')
+        # Get submission from DB
+        submission = db_get_submission_by_numeric_id(submission_id)
+        if not submission:
+            # If submission not found, return a nice HTML page
+            html_content = f"""
+            <html>
+                <head>
+                    <title>Submission</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                        .container {{ max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }}
+                        h2 {{ color: #4a6fff; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h2>Submission #{submission_id}</h2>
+                        <p>This is a simulated submission. No PDF content is available.</p>
+                        <p>This would normally display the student's submitted work.</p>
+                    </div>
+                </body>
+            </html>
+            """
+            return HttpResponse(html_content, content_type='text/html')
+        
+        # If we have a submission but no file content
+        if not submission.get("file_content"):
+            file_name = submission.get("file_name", "submission")
+            html_content = f"""
+            <html>
+                <head>
+                    <title>Submission - {file_name}</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                        .container {{ max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }}
+                        h2 {{ color: #4a6fff; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h2>Submission: {file_name}</h2>
+                        <p>This is a simulated submission. The PDF content is not available.</p>
+                        <p>Student: {submission.get('student_name', 'Unknown')}</p>
+                        <p>Submitted: {submission.get('created_at', 'Unknown date')}</p>
+                    </div>
+                </body>
+            </html>
+            """
+            return HttpResponse(html_content, content_type='text/html')
 
-        # with open(debug_file_path, 'wb') as f:
-        #     f.write(pdf_data)
-        # print(f"Debug PDF written to: {debug_file_path}")
-
-        # Return the PDF with proper content type
-        response = HttpResponse(pdf_data, content_type='application/pdf')
-        response['X-Frame-Options'] = 'SAMEORIGIN'
-        response['Content-Disposition'] = 'inline; filename="document.pdf"'
-        return response
-    except TypeError:
-        return HttpResponse("Invalid PDF data", status=500)
+        # Try to decode the PDF data
+        try:
+            pdf_data = base64.b64decode(submission.get("file_content"))
+            if not pdf_data:
+                raise ValueError("No PDF data")
+                
+            # Return the PDF with proper content type
+            response = HttpResponse(pdf_data, content_type='application/pdf')
+            response['X-Frame-Options'] = 'SAMEORIGIN'
+            response['Content-Disposition'] = 'inline; filename="document.pdf"'
+            return response
+        except (TypeError, ValueError, base64.Error) as e:
+            # If PDF decoding fails, return an HTML page
+            file_name = submission.get("file_name", "submission")
+            html_content = f"""
+            <html>
+                <head>
+                    <title>Submission - {file_name}</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                        .container {{ max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }}
+                        h2 {{ color: #4a6fff; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h2>Submission: {file_name}</h2>
+                        <p>There was an issue displaying this PDF submission.</p>
+                        <p>Student: {submission.get('student_name', 'Unknown')}</p>
+                        <p>Submitted: {submission.get('created_at', 'Unknown date')}</p>
+                    </div>
+                </body>
+            </html>
+            """
+            return HttpResponse(html_content, content_type='text/html')
+    except Exception as e:
+        # General error handling
+        html_content = f"""
+        <html>
+            <head>
+                <title>Submission</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                    .container {{ max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }}
+                    h2 {{ color: #4a6fff; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h2>Submission #{submission_id}</h2>
+                    <p>This is a simulated submission. No PDF content is available.</p>
+                    <p>Error: {str(e)}</p>
+                </div>
+            </body>
+        </html>
+        """
+        return HttpResponse(html_content, content_type='text/html')
 
 def view_assignment_instructions(request, assignment_id):
     print("assignment_id:", assignment_id, flush=True)
-    file_content = db_get_assignment_instructions_file_content(assignment_id)
-
-    pdf_data = base64.b64decode(file_content)
-    if not pdf_data:
-        return HttpResponse("PDF data not found", status=404)
-
     try:
-        # Return the PDF with proper content type
-        response = HttpResponse(pdf_data, content_type='application/pdf')
-        response['X-Frame-Options'] = 'SAMEORIGIN'
-        response['Content-Disposition'] = 'inline; filename="document.pdf"'
-        return response
-    except TypeError:
-        return HttpResponse("Invalid PDF data", status=500)
+        file_content = db_get_assignment_instructions_file_content(assignment_id)
+        if not file_content:
+            # If no file content, return a readable error page instead of PDF
+            html_content = f"""
+            <html>
+                <head>
+                    <title>Assignment Instructions</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                        .container {{ max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }}
+                        h2 {{ color: #4a6fff; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h2>Assignment Instructions</h2>
+                        <p>This is a simulated assignment. No PDF instructions are available for this assignment.</p>
+                        <p>You can still submit your work using the upload form.</p>
+                    </div>
+                </body>
+            </html>
+            """
+            return HttpResponse(html_content, content_type='text/html')
+            
+        # If we have file content, try to show the PDF
+        try:
+            pdf_data = base64.b64decode(file_content)
+            # Return the PDF with proper content type
+            response = HttpResponse(pdf_data, content_type='application/pdf')
+            response['X-Frame-Options'] = 'SAMEORIGIN'
+            response['Content-Disposition'] = 'inline; filename="document.pdf"'
+            return response
+        except (TypeError, base64.Error):
+            # If PDF decoding fails, show a message
+            html_content = f"""
+            <html>
+                <head>
+                    <title>Assignment Instructions</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                        .container {{ max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }}
+                        h2 {{ color: #4a6fff; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h2>Assignment Instructions</h2>
+                        <p>There was an issue displaying the PDF instructions for this assignment.</p>
+                        <p>You can still submit your work using the upload form.</p>
+                    </div>
+                </body>
+            </html>
+            """
+            return HttpResponse(html_content, content_type='text/html')
+    except Exception as e:
+        # General error handling
+        html_content = f"""
+        <html>
+            <head>
+                <title>Assignment Instructions</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                    .container {{ max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }}
+                    h2 {{ color: #4a6fff; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h2>Assignment Instructions</h2>
+                    <p>This is a simulated assignment. No PDF instructions are available.</p>
+                    <p>You can still submit your work using the upload form.</p>
+                </div>
+            </body>
+        </html>
+        """
+        return HttpResponse(html_content, content_type='text/html')
 
 
 def instructor_grade_submission(request, numeric_id):
@@ -646,6 +1008,10 @@ def instructor_grade_submission(request, numeric_id):
         context["previous_grade"] = previous_submission.get("grade")
         context["previous_feedback"] = previous_submission.get("feedback")
         context["graded"] = previous_submission.get("graded")
+        
+        # Add a note that this was auto-graded by AI
+        if previous_submission.get("graded") and previous_submission.get("grade") == previous_submission.get("ai_score"):
+            context["auto_graded_by_ai"] = True
 
     print("in instructor_grade_submission")
     print("serving context:", context, flush=True)

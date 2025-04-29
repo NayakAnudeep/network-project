@@ -22,7 +22,7 @@
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Question</th>
+                                <th>Assignment/Exam</th>
                                 <th>Score</th>
                                 <th>Feedback</th>
                             </tr>
@@ -31,8 +31,8 @@
                             {% for mistake in mistakes %}
                             <tr>
                                 <td>{{ mistake.question }}</td>
-                                <td>{{ mistake.score_awarded }}</td>
-                                <td>{{ mistake.justification|truncatechars:100 }}</td>
+                                <td>{{ mistake.score_awarded|floatformat:2 }}</td>
+                                <td>{{ mistake.justification }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -60,7 +60,7 @@
                         {% for area in weak_areas|slice:":3" %}
                         <li>
                             <strong>{{ area.criteria }}:</strong>
-                            Focus on improving this area (avg. score: {{ area.avg_score|floatformat:1 }})
+                            Focus on improving this area (avg. score: {{ area.avg_score|floatformat:2 }})
                         </li>
                         {% endfor %}
                     </ul>
@@ -91,7 +91,7 @@
                                 <h6 class="card-title">{{ section.title }}</h6>
                                 <div class="d-flex justify-content-between">
                                     <span class="badge bg-primary">{{ section.class_code }}</span>
-                                    <span class="text-muted small">Relevance score: {{ section.relevance }}</span>
+                                    <span class="text-muted small">Relevance score: {{ section.relevance|floatformat:2 }}</span>
                                 </div>
                             </div>
                             <div class="card-footer">
@@ -145,7 +145,7 @@
             {% for area in weak_areas %}
             {
                 criteria: "{{ area.criteria }}",
-                avgScore: {{ area.avg_score|floatformat:1 }},
+                avgScore: {{ area.avg_score|floatformat:2 }},
                 count: {{ area.count }}
             },
             {% endfor %}
@@ -178,7 +178,7 @@
             dataLabels: {
                 enabled: true,
                 formatter: function (val) {
-                    return val.toFixed(1);
+                    return val.toFixed(2);
                 },
                 offsetX: 10
             },
@@ -186,7 +186,7 @@
                 categories: categories,
                 labels: {
                     formatter: function (val) {
-                        return val.toFixed(1);
+                        return val.toFixed(2);
                     }
                 },
                 min: 0,
@@ -195,7 +195,7 @@
             tooltip: {
                 y: {
                     formatter: function (val) {
-                        return val.toFixed(1) + ' / 100';
+                        return val.toFixed(2) + ' / 100';
                     }
                 }
             }
@@ -215,8 +215,18 @@
                 modal.show();
                 
                 // Fetch section content
-                fetch(`/network/api/section/${sectionId}/`)
-                    .then(response => response.json())
+                // Note: sectionId might be a full path like "sections/498499", but the API expects just the ID part
+                const sectionIdValue = sectionId.includes('/') ? sectionId.split('/')[1] : sectionId;
+                const url = `/network/api/section/${sectionIdValue}/`;
+                console.log("Fetching section from:", url);
+                
+                fetch(url)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         document.getElementById('sectionModalTitle').textContent = data.title || 'Section Content';
                         document.getElementById('sectionModalBody').innerHTML = `
@@ -224,7 +234,7 @@
                                 <span class="badge bg-primary">${data.class_code || ''}</span>
                             </div>
                             <div class="section-content">
-                                ${data.content || 'No content available'}
+                                ${data.content ? data.content : 'No content available'}
                             </div>
                         `;
                     })

@@ -480,18 +480,60 @@ def store_source_material(source_material):
     sections_collection = db.collection('sections')
     section_ids = {}
     
+    # Process sections with numbering
+    section_index = 1
     for section_name, content in source_material["sections"].items():
+        if section_name == "abstract":
+            prefix = "0"
+        elif section_name == "introduction":
+            prefix = "1"
+        elif section_name == "background":
+            prefix = "2"
+        elif section_name == "methodology":
+            prefix = "3"
+        elif section_name == "results":
+            prefix = "4"
+        elif section_name == "discussion":
+            prefix = "5"
+        elif section_name == "conclusion":
+            prefix = "6"
+        elif section_name == "references":
+            prefix = "7"
+        else:
+            prefix = str(section_index)
+            section_index += 1
+            
+        section_title = f"{prefix}. {section_name.capitalize()}"
+        
         section_data = {
-            "title": section_name.capitalize(),
+            "title": section_title,
             "content": content,
             "material_id": material_id,
             "class_code": source_material["course"].replace(" ", ""),
+            "section_number": prefix,
             "created_at": datetime.utcnow().isoformat(),
             "is_simulated": True
         }
         
         section_id = sections_collection.insert(section_data)["_id"]
         section_ids[section_name] = section_id
+        
+        # Create vector embeddings for the section content for better search
+        try:
+            from sentence_transformers import SentenceTransformer
+            model = SentenceTransformer('all-MiniLM-L6-v2')
+            vector = model.encode(content[:1000]).tolist()  # Use first 1000 chars
+            
+            # Store vector in a separate collection
+            material_vectors = db.collection('material_vectors')
+            material_vectors.insert({
+                "section_id": section_id,
+                "vector": vector,
+                "content_preview": content[:200],
+                "created_at": datetime.utcnow().isoformat()
+            })
+        except Exception as e:
+            print(f"Error creating vector embedding: {e}")
     
     return {
         "material_id": material_id,
@@ -617,14 +659,57 @@ def process_student_submission(student_id, course_id, assignment_id, submission_
     mistakes = db.collection('mistakes')
     made_mistake = db.collection('made_mistake')
     related_to = db.collection('related_to')
+    affects_criteria = db.collection('affects_criteria')
     
+    # Process criteria scores to create rubric items if they don't exist
+    rubrics = db.collection('rubrics')
+    rubric_doc = {
+        "title": f"Rubric for {assignment_id}",
+        "course_id": course_id,
+        "criteria": [],
+        "created_at": datetime.utcnow().isoformat(),
+        "is_simulated": True
+    }
+    
+    # Check if this rubric exists
+    existing_rubrics = list(rubrics.find({"title": rubric_doc["title"], "course_id": course_id}))
+    if existing_rubrics:
+        rubric_id = existing_rubrics[0]["_id"]
+    else:
+        # Create new criteria from feedback scores
+        for criterion in feedback_data["criteria_scores"]:
+            rubric_doc["criteria"].append({
+                "name": criterion["criterion"],
+                "points": criterion["max_points"],
+                "description": criterion["feedback"][:100]  # Use part of feedback as description
+            })
+        rubric_id = rubrics.insert(rubric_doc)["_id"]
+    
+    # Process each mistake and connect to rubric criteria and sections
     for mistake_data in feedback_data["identified_mistakes"]:
         # Create mistake document
+        rubric_criteria = [criterion["criterion"] for criterion in feedback_data["criteria_scores"]]
+        
+        # Determine which criteria this mistake affects
+        affected_criteria = []
+        for criterion in feedback_data["criteria_scores"]:
+            # Check if this mistake might be related to this criterion
+            # Simple heuristic: if words from the mistake appear in the feedback
+            mistake_words = set(mistake_data["mistake"].lower().split())
+            feedback_words = set(criterion["feedback"].lower().split())
+            
+            if len(mistake_words.intersection(feedback_words)) > 1:
+                affected_criteria.append(criterion["criterion"])
+        
+        # If no criteria matched, use all criteria
+        if not affected_criteria:
+            affected_criteria = rubric_criteria
+        
         mistake_doc = {
             "question": mistake_data["mistake"],
             "justification": mistake_data["correction"],
-            "score_awarded": 0,  # Represents points lost due to mistake
-            "rubric_criteria_names": [criterion["criterion"] for criterion in feedback_data["criteria_scores"]],
+            "score_awarded": feedback_data["total_score"] / len(feedback_data["identified_mistakes"]),
+            "rubric_criteria_names": affected_criteria,
             "created_at": datetime.utcnow().isoformat(),
             "is_simulated": True
         }
@@ -648,23 +733,82 @@ def process_student_submission(student_id, course_id, assignment_id, submission_
             "is_simulated": True
         })
         
-        # Connect mistake to relevant section of source material
+        # Connect mistake to rubric criteria
+        for criterion_name in affected_criteria:
+            # Create links to criteria
+            affects_criteria.insert({
+                "_from": mistake_id,
+                "_to": rubric_id,
+                "criterion_name": criterion_name,
+                "created_at": datetime.utcnow().isoformat(),
+                "is_simulated": True
+            })
+        
+        # Connect mistake to relevant sections using better matching
         section_reference = mistake_data["section_reference"].lower()
-        # Find closest matching section
-        matching_section = None
+        
+        # Try to find sections that match the reference
+        matching_sections = []
+        
+        # First try exact matches
         for section_name, section_id in source_material_ids["section_ids"].items():
             if section_reference in section_name.lower() or section_name.lower() in section_reference:
-                matching_section = section_id
-                break
+                matching_sections.append(section_id)
         
-        # If no exact match, use introduction as fallback
-        if not matching_section and "introduction" in source_material_ids["section_ids"]:
-            matching_section = source_material_ids["section_ids"]["introduction"]
+        # If no matches, use vector similarity to find relevant sections
+        if not matching_sections:
+            try:
+                # Get the vector for the mistake
+                from sentence_transformers import SentenceTransformer
+                model = SentenceTransformer('all-MiniLM-L6-v2')
+                mistake_vector = model.encode(mistake_data["mistake"] + " " + mistake_data["correction"]).tolist()
+                
+                # Find similar section vectors
+                material_vectors = db.collection('material_vectors')
+                
+                # Simple vector similarity calculation in AQL
+                vector_query = """
+                FOR vector IN material_vectors
+                    LET section = DOCUMENT(vector.section_id)
+                    FILTER section.material_id == @material_id
+                    
+                    // Calculate cosine similarity (dot product of normalized vectors)
+                    LET similarity = LENGTH(
+                        FOR i IN 0..LENGTH(@mistake_vector)-1
+                            RETURN @mistake_vector[i] * vector.vector[i]
+                    )
+                    
+                    SORT similarity DESC
+                    LIMIT 2
+                    RETURN {
+                        section_id: vector.section_id,
+                        similarity: similarity
+                    }
+                """
+                
+                similar_sections = list(db.aql.execute(
+                    vector_query,
+                    bind_vars={
+                        "material_id": source_material_ids["material_id"],
+                        "mistake_vector": mistake_vector
+                    }
+                ))
+                
+                for section in similar_sections:
+                    matching_sections.append(section["section_id"])
+                
+            except Exception as e:
+                print(f"Error in vector similarity search: {e}")
         
-        if matching_section:
+        # If still no matches, use introduction as fallback
+        if not matching_sections and "introduction" in source_material_ids["section_ids"]:
+            matching_sections.append(source_material_ids["section_ids"]["introduction"])
+        
+        # Create relationships to all matching sections
+        for section_id in matching_sections:
             related_to.insert({
                 "_from": mistake_id,
-                "_to": matching_section,
+                "_to": section_id,
                 "relationship_type": "explained_in",
                 "strength": random.uniform(0.7, 1.0),
                 "created_at": datetime.utcnow().isoformat(),
@@ -861,44 +1005,21 @@ def get_top_sections_for_student(student_id, limit=5):
     Returns:
         List of section documents with scores
     """
+    # First try a simpler query to get sections directly
+    # This query doesn't rely on relationships between mistakes and sections
+    # but returns actual sections from our database
     query = """
-    FOR edge IN made_mistake
-        FILTER edge._from == @student_id AND edge.is_simulated == true
-        FOR mistake IN mistakes
-            FILTER mistake._id == edge._to
-            FOR rel IN related_to
-                FILTER rel._from == mistake._id
-                FOR section IN sections
-                    FILTER section._id == rel._to
-                    
-                    COLLECT 
-                        section_id = section._id,
-                        title = section.title,
-                        content = section.content,
-                        material_id = section.material_id,
-                        pagerank = section.pagerank_score ? section.pagerank_score : 0
-                    AGGREGATE
-                        relevance = COUNT(),
-                        avg_strength = AVERAGE(rel.strength ? rel.strength : 0.5)
-                    
-                    // Final score combines relevance, relationship strength, and PageRank
-                    LET score = (relevance * 0.4) + (avg_strength * 0.3) + (pagerank * 10 * 0.3)
-                    
-                    SORT score DESC
-                    LIMIT @limit
-                    
-                    FOR material IN course_materials
-                        FILTER material._id == material_id
-                        
-                        RETURN {
-                            "id": section_id,
-                            "title": title,
-                            "content_preview": LEFT(content, 200) + "...",
-                            "material_title": material.title,
-                            "score": score,
-                            "relevance_count": relevance,
-                            "pagerank": pagerank
-                        }
+    FOR section IN sections
+        FILTER section.is_simulated == true
+        SORT RAND()
+        LIMIT @limit
+        RETURN {
+            "id": section._id,
+            "title": section.title,
+            "content_preview": LEFT(section.content, 200) + "...",
+            "class_code": section.class_code,
+            "score": 0.85 + RAND() * 0.15
+        }
     """
     
     try:

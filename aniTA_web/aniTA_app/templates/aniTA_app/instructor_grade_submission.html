@@ -26,55 +26,65 @@
             {% endif %}
         </div>
         {% if ai_feedback %}
-        <div class="ai-feedback">
-            <h3>AI Feedback</h3>
-            <p>AI Score: {{ ai_score }}</p>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Question</th>
-                        <th>Score</th>
-                        <th>Justification</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for feedback in ai_feedback %}
-                    <tr>
-                        <td>{{ feedback.question }}</td>
-                        <td>{{ feedback.score }}</td>
-                        <td>{{ feedback.justification }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="ai-feedback" style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="color: #2c5282; margin-bottom: 12px;">Claude AI Feedback</h3>
+            <p style="font-size: 1.1em;"><strong>AI Score:</strong> <span style="font-weight: bold; color: #2c5282;">{{ ai_score|floatformat:2 }}</span></p>
+            <div style="margin-top: 15px; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <thead>
+                        <tr style="background-color: #e2e8f0;">
+                            <th style="padding: 10px; text-align: left; border: 1px solid #cbd5e0;">Question</th>
+                            <th style="padding: 10px; text-align: center; border: 1px solid #cbd5e0; width: 80px;">Score</th>
+                            <th style="padding: 10px; text-align: left; border: 1px solid #cbd5e0;">Justification</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for feedback in ai_feedback %}
+                        <tr>
+                            <td style="padding: 10px; text-align: left; border: 1px solid #cbd5e0;">{{ feedback.question }}</td>
+                            <td style="padding: 10px; text-align: center; border: 1px solid #cbd5e0; font-weight: bold;">{{ feedback.score|floatformat:2 }}</td>
+                            <td style="padding: 10px; text-align: left; border: 1px solid #cbd5e0;">{{ feedback.justification }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p style="margin-top: 15px; color: #4a5568; font-style: italic;">AI feedback is automatically shown to students upon submission.</p>
         </div>
         {% endif %}
         {% if graded %}
-        <div class="previous-grade">
-            <h3>Assignment Graded</h3>
+        <div class="previous-grade" style="margin: 20px 0; padding: 15px; background: #f0f8ff; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="color: #2c5282; margin-bottom: 12px;">Current Grading Status</h3>
+            {% if auto_graded_by_ai %}
+            <div style="background-color: #fff3cd; padding: 12px; border-radius: 5px; margin-bottom: 15px; border-left: 4px solid #f59e0b;">
+                <p style="margin: 0;"><strong>Note:</strong> This assignment was automatically graded by Claude AI and this feedback is already visible to the student. 
+                You can adjust the grade and feedback if needed.</p>
+            </div>
+            {% endif %}
             {% if previous_grade %}
-            <p><strong>Previous Grade:</strong> {{ previous_grade }}</p>
+            <p style="font-size: 1.1em;"><strong>Current Grade:</strong> <span style="font-weight: bold; color: #2c5282;">{{ previous_grade|floatformat:2 }}</span></p>
             {% endif %}
             {% if previous_feedback %}
-            <p><strong>Previous Feedback:</strong></p>
-            <p>{{ previous_feedback }}</p>
+            <p style="margin-top: 15px;"><strong>Current Feedback (Visible to Student):</strong></p>
+            <pre style="white-space: pre-wrap; font-family: Arial, sans-serif; background-color: #f8fafc; padding: 15px; border-radius: 5px; border-left: 3px solid #4a6fff; margin-top: 5px;">{{ previous_feedback }}</pre>
             {% endif %}
         </div>
         {% endif %}
 
-        <div class="grading-form">
-            <h3>Grade Submission</h3>
+        <div class="grading-form" style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="color: #2c5282; margin-bottom: 12px;">Update Grade or Feedback</h3>
+            <p style="margin-bottom: 15px; color: #4a5568;">Use this form to modify the AI-generated grade or feedback if needed.</p>
             <form method="post" action="{% url 'post_grade_submission' numeric_submission_id=submission_id %}">
                 {% csrf_token %}
-                <div class="form-group">
-                    <label for="grade">Grade (0-100):</label>
-                    <input type="number" id="grade" name="grade" min="0" max="100" required>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="grade" style="display: block; margin-bottom: 5px; font-weight: bold;">Grade (0-100):</label>
+                    <input type="number" id="grade" name="grade" min="0" max="100" value="{{ ai_score|floatformat:0 }}" required style="width: 100px; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;">
                 </div>
-                <div class="form-group">
-                    <label for="feedback">Feedback:</label>
-                    <textarea id="feedback" name="feedback" rows="5" required></textarea>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="feedback" style="display: block; margin-bottom: 5px; font-weight: bold;">Feedback:</label>
+                    <textarea id="feedback" name="feedback" rows="8" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-family: Arial, sans-serif;">{{ previous_feedback }}</textarea>
                 </div>
-                <button type="submit">Submit Grade</button>
+                <button type="submit" style="background-color: #4a6fff; color: white; border: none; border-radius: 4px; padding: 10px 16px; cursor: pointer; font-weight: 500;">Update Grade and Feedback</button>
             </form>
         </div>
     </body>

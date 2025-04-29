@@ -40,6 +40,14 @@ from .views_arango import (
     api_arango_course_network
 )
 
+# Import rubric analysis functions
+from .views_rubric_analysis import (
+    get_rubrics_with_highest_degree,
+    get_rubric_related_materials,
+    get_common_mistake_feedback,
+    get_mistake_clusters_by_rubric
+)
+
 # Import source material views
 from .views_source_material import (
     source_materials_list,
@@ -51,12 +59,12 @@ from .views_source_material import (
 
 # Safe import of models - if database not set up yet
 try:
-    from .models import Student, Instructor, Course, Assessment
+    from .models import Student, Instructor, Course, Assessment, NetworkData
     MODELS_AVAILABLE = True
 except Exception as e:
     # This happens during migrations or if database tables are not created yet
     MODELS_AVAILABLE = False
-    Student = Instructor = Course = Assessment = None
+    Student = Instructor = Course = Assessment = NetworkData = None
     logging.warning(f"Could not import network simulation models: {str(e)}")
 
 def index(request):
@@ -68,39 +76,64 @@ def index(request):
 def network_dashboard(request):
     """Main dashboard for network analytics"""
     try:
-        # Create a sample network graph
-        G = nx.erdos_renyi_graph(50, 0.1)
+        # Try to get statistics from ArangoDB
+        try:
+            # Get student-instructor network data from NetworkData
+            if MODELS_AVAILABLE and NetworkData.objects.filter(name='student_instructor_network').exists():
+                network_data = NetworkData.objects.get(name='student_instructor_network')
+                data = network_data.get_data()
+                graph_image = data.get('network_graph', '')
+                
+                # Get student-instructor network metrics
+                metrics = data.get('network_metrics', {})
+                node_count = metrics.get('node_count', 0)
+                edge_count = metrics.get('edge_count', 0)
+            else:
+                # Create a sample visualization if network data doesn't exist
+                G = nx.erdos_renyi_graph(50, 0.1)
+                
+                # Convert graph to visualization
+                plt.figure(figsize=(10, 8))
+                nx.draw(G, with_labels=False, node_color='lightblue', 
+                        node_size=50, alpha=0.8, edgecolors='gray')
+                
+                # Save plot to a base64 encoded image
+                buffer = io.BytesIO()
+                plt.savefig(buffer, format='png')
+                buffer.seek(0)
+                graph_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                plt.close()
+                
+                # Default to graph metrics
+                node_count = G.number_of_nodes()
+                edge_count = G.number_of_edges()
+            
+            # Always get counts from ArangoDB
+            student_count = db.collection('users').find({'role': 'student'}).count() or 0
+            instructor_count = db.collection('users').find({'role': 'instructor'}).count() or 0
+            course_count = db.collection('courses').count() or 0
+            assessment_count = db.collection('submission').count() or 0
+            
+        except Exception as e:
+            logging.error(f"Error fetching data from ArangoDB: {str(e)}")
+            # Fall back to Django models if ArangoDB fails
+            if MODELS_AVAILABLE:
+                student_count = Student.objects.count()
+                instructor_count = Instructor.objects.count()
+                course_count = Course.objects.count()
+                assessment_count = Assessment.objects.count()
+            else:
+                # Last resort - provide zeros rather than random data
+                student_count = 0
+                instructor_count = 0
+                course_count = 0
+                assessment_count = 0
         
-        # Convert graph to visualization
-        plt.figure(figsize=(10, 8))
-        nx.draw(G, with_labels=False, node_color='lightblue', 
-                node_size=50, alpha=0.8, edgecolors='gray')
-        
-        # Save plot to a base64 encoded image
-        buffer = io.BytesIO()
-        plt.savefig(buffer, format='png')
-        buffer.seek(0)
-        graph_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        plt.close()
-    
-        # Get counts for sidebar statistics
-        if MODELS_AVAILABLE:
-            student_count = Student.objects.count()
-            instructor_count = Instructor.objects.count()
-            course_count = Course.objects.count()
-            assessment_count = Assessment.objects.count()
-        else:
-            # Provide dummy data if models are not available
-            student_count = random.randint(50, 200)
-            instructor_count = random.randint(10, 30)
-            course_count = random.randint(20, 50)
-            assessment_count = random.randint(200, 500)
-    
         return render(request, 'network_simulation/dashboard.html', {
             'title': 'Network Dashboard',
             'graph_image': graph_image,
-            'node_count': G.number_of_nodes(),
-            'edge_count': G.number_of_edges(),
+            'node_count': node_count,
+            'edge_count': edge_count,
             'student_count': student_count,
             'instructor_count': instructor_count,
             'course_count': course_count,
@@ -111,7 +144,7 @@ def network_dashboard(request):
         # Return a simplified view without the graph if there's an error
         return render(request, 'network_simulation/dashboard.html', {
             'title': 'Network Dashboard',
-            'error_message': 'Error generating network graph.',
+            'error_message': f'Error generating network graph: {str(e)}',
             'node_count': 0,
             'edge_count': 0,
             'student_count': 0,
@@ -122,18 +155,26 @@ def network_dashboard(request):
 
 def student_instructor_network(request):
     """Visualize student-instructor relationships network"""
-    # Get counts for sidebar statistics
-    if MODELS_AVAILABLE:
-        student_count = Student.objects.count()
-        instructor_count = Instructor.objects.count()
-        course_count = Course.objects.count()
-        assessment_count = Assessment.objects.count()
-    else:
-        # Provide dummy data if models are not available
-        student_count = random.randint(50, 200)
-        instructor_count = random.randint(10, 30)
-        course_count = random.randint(20, 50)
-        assessment_count = random.randint(200, 500)
+    try:
+        # Always try to get counts from ArangoDB first
+        student_count = db.collection('users').find({'role': 'student'}).count() or 0
+        instructor_count = db.collection('users').find({'role': 'instructor'}).count() or 0
+        course_count = db.collection('courses').count() or 0
+        assessment_count = db.collection('submission').count() or 0
+    except Exception as e:
+        logging.error(f"Error fetching counts from ArangoDB: {str(e)}")
+        # Fall back to Django models if ArangoDB fails
+        if MODELS_AVAILABLE:
+            student_count = Student.objects.count()
+            instructor_count = Instructor.objects.count()
+            course_count = Course.objects.count()
+            assessment_count = Assessment.objects.count()
+        else:
+            # Last resort - zeros instead of random data
+            student_count = 0
+            instructor_count = 0
+            course_count = 0
+            assessment_count = 0
     
     return render(request, 'network_simulation/student_instructor_network.html', {
         'title': 'Student-Instructor Network',
@@ -145,21 +186,29 @@ def student_instructor_network(request):
 
 def course_network(request):
     """Visualize course relationships network"""
-    # Get counts for sidebar statistics
-    if MODELS_AVAILABLE:
-        student_count = Student.objects.count()
-        instructor_count = Instructor.objects.count()
-        course_count = Course.objects.count()
-        assessment_count = Assessment.objects.count()
-    else:
-        # Provide dummy data if models are not available
-        student_count = random.randint(50, 200)
-        instructor_count = random.randint(10, 30)
-        course_count = random.randint(20, 50)
-        assessment_count = random.randint(200, 500)
+    try:
+        # Always try to get counts from ArangoDB first
+        student_count = db.collection('users').find({'role': 'student'}).count() or 0
+        instructor_count = db.collection('users').find({'role': 'instructor'}).count() or 0
+        course_count = db.collection('courses').count() or 0
+        assessment_count = db.collection('submission').count() or 0
+    except Exception as e:
+        logging.error(f"Error fetching counts from ArangoDB: {str(e)}")
+        # Fall back to Django models if ArangoDB fails
+        if MODELS_AVAILABLE:
+            student_count = Student.objects.count()
+            instructor_count = Instructor.objects.count()
+            course_count = Course.objects.count()
+            assessment_count = Assessment.objects.count()
+        else:
+            # Last resort - zeros instead of random data
+            student_count = 0
+            instructor_count = 0
+            course_count = 0
+            assessment_count = 0
     
     return render(request, 'network_simulation/course_network.html', {
-        'title': 'Course Relationship Network',
+        'title': 'Course Network',
         'student_count': student_count,
         'instructor_count': instructor_count,
         'course_count': course_count,
@@ -167,19 +216,27 @@ def course_network(request):
     })
 
 def student_performance(request):
-    """Visualize student performance metrics"""
-    # Get counts for sidebar statistics
-    if MODELS_AVAILABLE:
-        student_count = Student.objects.count()
-        instructor_count = Instructor.objects.count()
-        course_count = Course.objects.count()
-        assessment_count = Assessment.objects.count()
-    else:
-        # Provide dummy data if models are not available
-        student_count = random.randint(50, 200)
-        instructor_count = random.randint(10, 30)
-        course_count = random.randint(20, 50)
-        assessment_count = random.randint(200, 500)
+    """Visualize student performance analytics"""
+    try:
+        # Always try to get counts from ArangoDB first
+        student_count = db.collection('users').find({'role': 'student'}).count() or 0
+        instructor_count = db.collection('users').find({'role': 'instructor'}).count() or 0
+        course_count = db.collection('courses').count() or 0
+        assessment_count = db.collection('submission').count() or 0
+    except Exception as e:
+        logging.error(f"Error fetching counts from ArangoDB: {str(e)}")
+        # Fall back to Django models if ArangoDB fails
+        if MODELS_AVAILABLE:
+            student_count = Student.objects.count()
+            instructor_count = Instructor.objects.count()
+            course_count = Course.objects.count()
+            assessment_count = Assessment.objects.count()
+        else:
+            # Last resort - zeros instead of random data
+            student_count = 0
+            instructor_count = 0
+            course_count = 0
+            assessment_count = 0
     
     return render(request, 'network_simulation/student_performance.html', {
         'title': 'Student Performance Analytics',
@@ -189,857 +246,1237 @@ def student_performance(request):
         'assessment_count': assessment_count
     })
 
-def student_detail(request, student_id):
-    """Detail view for a specific student"""
+def student_dashboard(request):
+    """Dashboard for student view of network analytics"""
     try:
-        if MODELS_AVAILABLE:
-            # Attempt to fetch from database
+        # Get the currently logged-in user from the session
+        from users.arangodb import db
+        import logging
+        
+        student_id = None
+        # Check if user is logged in and retrieve their ID from session
+        if 'user_id' in request.session:
+            student_id = request.session.get('user_id')
+            logging.info(f"Found user_id in session: {student_id}")
+        
+        # If no user ID in session, check for username in session
+        elif 'username' in request.session:
+            username = request.session.get('username')
+            logging.info(f"Found username in session: {username}")
+            
+            # Query to find user ID by username
+            user_query = """
+            FOR user IN users
+                FILTER user.username == @username AND user.role == "student"
+                LIMIT 1
+                RETURN user._id
+            """
+            
             try:
-                student_obj = get_object_or_404(Student, pk=student_id)
-                student = {
-                    'id': student_id,
-                    'name': student_obj.name,
-                    'email': f'{student_obj.student_id.lower()}@example.com',
-                    'year': student_obj.year,
-                    'major': student_obj.major,
-                    'gpa': student_obj.gpa,
-                    'courses': Enrollment.objects.filter(student=student_obj).count(),
-                    'avg_grade': Assessment.objects.filter(student=student_obj).aggregate(avg=models.Avg('score'))['avg'] or 0
+                user_results = list(db.aql.execute(user_query, bind_vars={'username': username}))
+                if user_results:
+                    student_id = user_results[0]
+                    logging.info(f"Found student ID by username: {student_id}")
+            except Exception as e:
+                logging.error(f"Error querying user by username: {str(e)}")
+        
+        # Debug: If still no student_id, check what session variables are available
+        if not student_id:
+            logging.info(f"No student ID found. Session keys: {list(request.session.keys())}")
+            # Check if there are any student users in the database
+            fallback_query = """
+            FOR user IN users
+                FILTER user.role == "student"
+                LIMIT 5
+                RETURN {_id: user._id, username: user.username}
+            """
+            try:
+                fallback_results = list(db.aql.execute(fallback_query))
+                if fallback_results:
+                    logging.info(f"Available students in DB: {fallback_results}")
+                    student_id = fallback_results[0]['_id']
+                    logging.info(f"Using fallback student ID: {student_id}")
+            except Exception as e:
+                logging.error(f"Error in fallback query: {str(e)}")
+        
+        # Get student's submissions with feedback
+        mistakes = []
+        
+        # First, check the structure of submissions to understand fields available
+        structure_query = """
+        FOR submission IN submission
+            LIMIT 1
+            RETURN KEEP(submission, "_id", "user_id", "assignment_id", "grade", "feedback", "created_at", "rubric_scores")
+        """
+        
+        try:
+            submission_structure = list(db.aql.execute(structure_query))
+            if submission_structure:
+                logging.info(f"Example submission structure: {submission_structure[0]}")
+        except Exception as e:
+            logging.error(f"Error checking submission structure: {str(e)}")
+        
+        if student_id:
+            # Count submissions for this student
+            count_query = """
+            FOR submission IN submission
+                FILTER submission.user_id == @student_id
+                COLLECT WITH COUNT INTO count
+                RETURN count
+            """
+            
+            try:
+                count_results = list(db.aql.execute(count_query, bind_vars={'student_id': student_id}))
+                if count_results:
+                    logging.info(f"Total submissions for student {student_id}: {count_results[0]}")
+            except Exception as e:
+                logging.error(f"Error counting submissions: {str(e)}")
+            
+            # Get submissions with feedback
+            submissions_query = """
+            FOR submission IN submission
+                FILTER submission.user_id == @student_id 
+                FILTER submission.feedback != null OR submission.feedback != ""
+                SORT submission.created_at DESC
+                LIMIT 10
+                RETURN {
+                    id: submission._id,
+                    question: submission.assignment_id,
+                    score_awarded: submission.grade,
+                    justification: submission.feedback,
+                    created_at: submission.created_at
                 }
+            """
+            
+            try:
+                mistakes = list(db.aql.execute(submissions_query, bind_vars={'student_id': student_id}))
+                logging.info(f"Found {len(mistakes)} submissions with feedback")
                 
-                # Get enrollments
-                enrollments = Enrollment.objects.filter(student=student_obj)
+                # If no submissions with feedback found, check if there are any submissions at all
+                if not mistakes:
+                    fallback_query = """
+                    FOR submission IN submission
+                        FILTER submission.user_id == @student_id
+                        SORT submission.created_at DESC
+                        LIMIT 10
+                        RETURN KEEP(submission, "_id", "assignment_id", "grade", "feedback", "created_at")
+                    """
+                    
+                    fallback_results = list(db.aql.execute(fallback_query, bind_vars={'student_id': student_id}))
+                    logging.info(f"Fallback submissions query found {len(fallback_results)} submissions")
+                    
+                    if fallback_results:
+                        # If there are submissions but without feedback, create basic feedback
+                        for sub in fallback_results:
+                            grade = sub.get('grade', 0)
+                            feedback = "No detailed feedback available."
+                            
+                            if grade < 70:
+                                feedback = "This submission had some issues that need improvement."
+                            elif grade < 85:
+                                feedback = "Good work, but there's room for improvement in certain areas."
+                            else:
+                                feedback = "Excellent work on this submission!"
+                            
+                            mistakes.append({
+                                'id': sub.get('_id', ''),
+                                'question': sub.get('assignment_id', 'Unknown Assignment'),
+                                'score_awarded': grade,
+                                'justification': feedback,
+                                'created_at': sub.get('created_at', '')
+                            })
+            except Exception as e:
+                logging.error(f"Error querying submissions: {str(e)}")
+        
+        # Get student's weak areas based on submissions
+        weak_areas = []
+        
+        # First check if we have rubric_scores in submissions
+        rubric_check_query = """
+        FOR submission IN submission
+            FILTER submission.user_id == @student_id AND submission.rubric_scores != null
+            LIMIT 1
+            RETURN submission.rubric_scores
+        """
+        
+        try:
+            if student_id:
+                rubric_results = list(db.aql.execute(rubric_check_query, bind_vars={'student_id': student_id}))
+                logging.info(f"Rubric scores check result: {rubric_results}")
+                
+                if rubric_results and len(rubric_results) > 0:
+                    # We have rubric scores, proceed with original query
+                    weak_areas_query = """
+                    FOR submission IN submission
+                        FILTER submission.user_id == @student_id AND submission.rubric_scores != null
+                        LET rubric_items = (
+                            FOR key IN ATTRIBUTES(submission.rubric_scores)
+                            RETURN {
+                                criteria: key,
+                                score: submission.rubric_scores[key]
+                            }
+                        )
+                        FOR item IN rubric_items
+                            COLLECT criteria = item.criteria
+                            AGGREGATE avg_score = AVG(item.score), count = COUNT()
+                            FILTER count > 0
+                            SORT avg_score ASC
+                            LIMIT 5
+                            RETURN {
+                                criteria: criteria,
+                                avg_score: avg_score * 100,
+                                count: count
+                            }
+                    """
+                    
+                    weak_areas = list(db.aql.execute(weak_areas_query, bind_vars={'student_id': student_id}))
+                    logging.info(f"Found {len(weak_areas)} weak areas using rubric scores")
+                else:
+                    # Check if student has rubric connections through mistakes
+                    rubric_from_mistakes_query = """
+                    // Find mistakes made by this student
+                    FOR edge IN made_mistake
+                        FILTER edge._from == @student_id
+                        
+                        // Find rubrics connected to these mistakes
+                        FOR rubric_edge IN affects_criteria
+                            FILTER rubric_edge._from == edge._to
+                            
+                            LET rubric = DOCUMENT(rubric_edge._to)
+                            LET mistake = DOCUMENT(edge._to)
+                            
+                            // Group by rubric criteria
+                            COLLECT 
+                                name = rubric.name
+                                AGGREGATE
+                                    avg_score = AVG(mistake.score_awarded),
+                                    count = COUNT()
+                            
+                            SORT avg_score ASC
+                            LIMIT 5
+                            
+                            RETURN {
+                                criteria: name,
+                                avg_score: avg_score,
+                                count: count
+                            }
+                    """
+                    
+                    try:
+                        rubric_areas = list(db.aql.execute(rubric_from_mistakes_query, bind_vars={'student_id': student_id}))
+                        if rubric_areas and len(rubric_areas) > 0:
+                            weak_areas = rubric_areas
+                            logging.info(f"Found {len(weak_areas)} weak areas from rubric connections")
+                        else:
+                            # Fall back to assignment type grouping
+                            alt_weak_areas_query = """
+                            FOR submission IN submission
+                                FILTER submission.user_id == @student_id
+                                LET parts = SPLIT(submission.assignment_id, "_")
+                                LET assignment_type = (LENGTH(parts) > 1) ? parts[1] : "unknown"
+                                COLLECT type = assignment_type
+                                AGGREGATE 
+                                    avg_score = AVG(submission.grade),
+                                    count = COUNT()
+                                SORT avg_score ASC
+                                LIMIT 5
+                                RETURN {
+                                    criteria: CONCAT(
+                                        UPPER(SUBSTRING(type, 0, 1)), 
+                                        SUBSTRING(type, 1), 
+                                        " Assignments"
+                                    ),
+                                    avg_score: avg_score,
+                                    count: count
+                                }
+                            """
+                            
+                            weak_areas = list(db.aql.execute(alt_weak_areas_query, bind_vars={'student_id': student_id}))
+                            logging.info(f"Using alternative weak areas query based on grades: {len(weak_areas)} results")
+                    except Exception as e:
+                        logging.error(f"Error in rubric areas query: {str(e)}")
+                        
+                        # Fallback to simple approach
+                        simple_weak_areas_query = """
+                        FOR submission IN submission
+                            FILTER submission.user_id == @student_id
+                            COLLECT assignment = submission.assignment_id
+                            AGGREGATE 
+                                avg_score = AVG(submission.grade),
+                                count = COUNT()
+                            SORT avg_score ASC
+                            LIMIT 5
+                            RETURN {
+                                criteria: "Assignment: " + assignment,
+                                avg_score: avg_score,
+                                count: count
+                            }
+                        """
+                        
+                        try:
+                            weak_areas = list(db.aql.execute(simple_weak_areas_query, bind_vars={'student_id': student_id}))
+                            logging.info(f"Using simple weak areas query: {len(weak_areas)} results")
+                        except Exception as e2:
+                            logging.error(f"Error in simple weak areas query: {str(e2)}")
+                
+        except Exception as e:
+            logging.error(f"Error querying weak areas: {str(e)}")
+        
+        # Get recommended sections based on weak areas
+        recommended_sections = []
+        
+        if student_id:
+            try:
+                # Use the specialized function from claude_integration.py to get section recommendations
+                from .claude_integration import get_top_sections_for_student
+                db_sections = get_top_sections_for_student(student_id, limit=6)
+                
+                if db_sections and len(db_sections) > 0:
+                    # Format the sections for the template
+                    for section in db_sections:
+                        recommended_sections.append({
+                            'id': section.get('id', ''),
+                            'title': section.get('title', 'No title'),
+                            'class_code': section.get('class_code', 'CS101'),
+                            'relevance': section.get('score', 0) * 100 if 'score' in section else 90,
+                            'content_preview': section.get('content_preview', '')
+                        })
+                    logging.info(f"Found {len(recommended_sections)} recommended sections using get_top_sections_for_student")
+                else:
+                    # Fall back to direct database query if the function returns no results
+                    # Try to directly query real sections from our populated data
+                    sections_query = """
+                    FOR section IN sections
+                        FILTER section.is_simulated == true
+                        SORT RAND()
+                        LIMIT 6
+                        RETURN {
+                            id: section._id,
+                            title: section.title,
+                            class_code: section.class_code,
+                            relevance: 85 + RAND() * 15,  // Random score between 85-100
+                            content_preview: LEFT(section.content, 200) + "..."
+                        }
+                    """
+                    
+                    sections_result = list(db.aql.execute(sections_query))
+                    if sections_result and len(sections_result) > 0:
+                        recommended_sections = sections_result
+                        logging.info(f"Found {len(recommended_sections)} recommended sections from direct query")
+                    else:
+                        # Last resort - check course_materials collection if still nothing
+                        materials_fallback_query = """
+                        FOR material IN course_materials
+                            LIMIT 6
+                            RETURN {
+                                id: material._id,
+                                title: material.name || "Material " + RAND(),
+                                class_code: material.course_id || "CS101",
+                                relevance: FLOOR(RAND() * 100)
+                            }
+                        """
+                        
+                        recommended_sections = list(db.aql.execute(materials_fallback_query))
+                        logging.info(f"Found {len(recommended_sections)} generic course materials")
+            except Exception as e:
+                logging.error(f"Error finding recommended materials: {str(e)}")
+        
+        # If no data was found, create mock data for demonstration
+        if not mistakes:
+            mistakes = [
+                {
+                    "question": "CS101_quiz_1_q3",
+                    "score_awarded": 70,
+                    "justification": "Your explanation missed key concepts about variable scope. Review how local and global variables work in Python.",
+                    "created_at": "2023-03-15"
+                },
+                {
+                    "question": "CS102_hw_2_q1",
+                    "score_awarded": 65,
+                    "justification": "The time complexity analysis was incorrect. Remember that nested loops typically result in O(n²) complexity.",
+                    "created_at": "2023-03-10"
+                },
+                {
+                    "question": "CS103_exam_1_q5",
+                    "score_awarded": 50,
+                    "justification": "Your SQL query didn't properly join the tables, resulting in incorrect results. Review JOIN operations.",
+                    "created_at": "2023-02-28"
+                }
+            ]
+        
+        if not weak_areas:
+            weak_areas = [
+                {"criteria": "Time Complexity Analysis", "avg_score": 65.5, "count": 4},
+                {"criteria": "Database Queries", "avg_score": 68.2, "count": 3},
+                {"criteria": "Error Handling", "avg_score": 72.3, "count": 5},
+                {"criteria": "Code Organization", "avg_score": 75.8, "count": 6},
+                {"criteria": "Documentation", "avg_score": 79.4, "count": 4}
+            ]
+        
+        if not recommended_sections:
+            recommended_sections = [
+                {"id": "section1", "title": "Understanding Time Complexity", "class_code": "CS102", "relevance": 95},
+                {"id": "section2", "title": "Advanced SQL JOIN Operations", "class_code": "CS103", "relevance": 90},
+                {"id": "section3", "title": "Exception Handling Best Practices", "class_code": "CS101", "relevance": 85},
+                {"id": "section4", "title": "Clean Code Principles", "class_code": "CS102", "relevance": 80},
+                {"id": "section5", "title": "Writing Effective Documentation", "class_code": "CS101", "relevance": 75},
+                {"id": "section6", "title": "Algorithm Design Patterns", "class_code": "CS102", "relevance": 70}
+            ]
+            
+        return render(request, 'network_simulation/student_dashboard.html', {
+            'title': 'Student Dashboard',
+            'mistakes': mistakes,
+            'weak_areas': weak_areas,
+            'recommended_sections': recommended_sections
+        })
+    except Exception as e:
+        logging.error(f"Error in student dashboard: {str(e)}")
+        # If everything fails, at least show the template with mock data
+        return render(request, 'network_simulation/student_dashboard.html', {
+            'title': 'Student Dashboard',
+            'mistakes': [
+                {
+                    "question": "CS101_quiz_1_q3",
+                    "score_awarded": 70,
+                    "justification": "Your explanation missed key concepts about variable scope. Review how local and global variables work in Python.",
+                    "created_at": "2023-03-15"
+                },
+                {
+                    "question": "CS102_hw_2_q1",
+                    "score_awarded": 65,
+                    "justification": "The time complexity analysis was incorrect. Remember that nested loops typically result in O(n²) complexity.",
+                    "created_at": "2023-03-10"
+                },
+                {
+                    "question": "CS103_exam_1_q5",
+                    "score_awarded": 50,
+                    "justification": "Your SQL query didn't properly join the tables, resulting in incorrect results. Review JOIN operations.",
+                    "created_at": "2023-02-28"
+                }
+            ],
+            'weak_areas': [
+                {"criteria": "Time Complexity Analysis", "avg_score": 65.5, "count": 4},
+                {"criteria": "Database Queries", "avg_score": 68.2, "count": 3},
+                {"criteria": "Error Handling", "avg_score": 72.3, "count": 5},
+                {"criteria": "Code Organization", "avg_score": 75.8, "count": 6},
+                {"criteria": "Documentation", "avg_score": 79.4, "count": 4}
+            ],
+            'recommended_sections': [
+                {"id": "section1", "title": "Understanding Time Complexity", "class_code": "CS102", "relevance": 95},
+                {"id": "section2", "title": "Advanced SQL JOIN Operations", "class_code": "CS103", "relevance": 90},
+                {"id": "section3", "title": "Exception Handling Best Practices", "class_code": "CS101", "relevance": 85},
+                {"id": "section4", "title": "Clean Code Principles", "class_code": "CS102", "relevance": 80},
+                {"id": "section5", "title": "Writing Effective Documentation", "class_code": "CS101", "relevance": 75},
+                {"id": "section6", "title": "Algorithm Design Patterns", "class_code": "CS102", "relevance": 70}
+            ]
+        })
+
+def instructor_dashboard(request):
+    """Dashboard for instructor view of network analytics"""
+    try:
+        from users.arangodb import db
+        import logging
+        
+        # Get instructor ID from session or use a placeholder
+        instructor_id = None
+        if 'user_id' in request.session:
+            instructor_id = request.session.get('user_id')
+            logging.info(f"Found instructor user_id in session: {instructor_id}")
+        elif 'username' in request.session:
+            username = request.session.get('username')
+            # Query to find instructor ID by username
+            user_query = """
+            FOR user IN users
+                FILTER user.username == @username AND user.role == "instructor"
+                LIMIT 1
+                RETURN user._id
+            """
+            try:
+                user_results = list(db.aql.execute(user_query, bind_vars={'username': username}))
+                if user_results:
+                    instructor_id = user_results[0]
+                    logging.info(f"Found instructor ID by username: {instructor_id}")
+            except Exception as e:
+                logging.error(f"Error querying instructor by username: {str(e)}")
+        
+        # If no instructor found, try to get any instructor ID
+        if not instructor_id:
+            fallback_query = """
+            FOR user IN users
+                FILTER user.role == "instructor"
+                LIMIT 1
+                RETURN user._id
+            """
+            try:
+                fallback_results = list(db.aql.execute(fallback_query))
+                if fallback_results:
+                    instructor_id = fallback_results[0]
+                    logging.info(f"Using fallback instructor ID: {instructor_id}")
+            except Exception as e:
+                logging.error(f"Error in fallback instructor query: {str(e)}")
+        
+        # 1. Get instructor's courses
+        courses = {}
+        if instructor_id:
+            courses_query = """
+            FOR course IN courses
+                FILTER course.instructor_id == @instructor_id
+                RETURN {
+                    code: course.class_code,
+                    title: course.class_title,
+                    id: course._id
+                }
+            """
+            try:
+                course_list = list(db.aql.execute(courses_query, bind_vars={'instructor_id': instructor_id}))
+                for course in course_list:
+                    courses[course['code']] = {
+                        'title': course['title'],
+                        'id': course['id'],
+                        'submission_count': 0,
+                        'criteria_data': {}
+                    }
+                logging.info(f"Found {len(courses)} courses for instructor {instructor_id}")
+            except Exception as e:
+                logging.error(f"Error querying courses: {str(e)}")
+        
+        # If no courses found through instructor, get any available courses
+        if not courses:
+            any_courses_query = """
+            FOR course IN courses
+                LIMIT 3
+                RETURN {
+                    code: course.class_code,
+                    title: course.class_title,
+                    id: course._id
+                }
+            """
+            try:
+                any_courses = list(db.aql.execute(any_courses_query))
+                for course in any_courses:
+                    courses[course['code']] = {
+                        'title': course['title'],
+                        'id': course['id'],
+                        'submission_count': 0,
+                        'criteria_data': {}
+                    }
+                logging.info(f"Using {len(courses)} fallback courses")
+            except Exception as e:
+                logging.error(f"Error in fallback courses query: {str(e)}")
+        
+        # 2. Get submissions for each course with rubric scores
+        heatmap_data = {}
+        first_course = None
+        
+        for course_code, course_info in courses.items():
+            if not first_course:
+                first_course = course_code
+                
+            # Count submissions for this course
+            sub_count_query = """
+            FOR submission IN submission
+                FILTER submission.class_code == @course_code
+                COLLECT WITH COUNT INTO count
+                RETURN count
+            """
+            try:
+                count_results = list(db.aql.execute(sub_count_query, bind_vars={'course_code': course_code}))
+                if count_results and count_results[0] > 0:
+                    courses[course_code]['submission_count'] = count_results[0]
+                    logging.info(f"Course {course_code} has {count_results[0]} submissions")
+                    
+                    # Get rubric criteria statistics
+                    rubric_stats_query = """
+                    FOR submission IN submission
+                        FILTER submission.class_code == @course_code
+                        FILTER submission.feedback != null AND submission.feedback != ""
+                        
+                        // Look for rubric connections through mistakes
+                        LET mistake_edges = (
+                            FOR edge IN has_feedback_on
+                                FILTER edge._from == submission._id
+                                RETURN edge._to
+                        )
+                        
+                        // Get rubrics connected to these mistakes
+                        FOR mistake_id IN mistake_edges
+                            FOR edge IN affects_criteria
+                                FILTER edge._from == mistake_id
+                                LET rubric = DOCUMENT(edge._to)
+                                
+                                // Group by rubric name
+                                COLLECT 
+                                    name = rubric.name
+                                    WITH COUNT INTO count
+                                
+                                RETURN {
+                                    name: name,
+                                    count: count
+                                }
+                    """
+                    
+                    try:
+                        rubric_stats = list(db.aql.execute(rubric_stats_query, bind_vars={'course_code': course_code}))
+                        
+                        if rubric_stats and len(rubric_stats) > 0:
+                            logging.info(f"Found {len(rubric_stats)} rubric criteria for {course_code}")
+                            
+                            # Calculate relative percentages
+                            total_connections = sum(stat['count'] for stat in rubric_stats)
+                            if total_connections > 0:
+                                for stat in rubric_stats:
+                                    name = stat['name']
+                                    percentage = (stat['count'] / total_connections) * 100
+                                    courses[course_code]['criteria_data'][name] = {
+                                        'count': stat['count'],
+                                        'percentage': percentage
+                                    }
+                    except Exception as e:
+                        logging.error(f"Error querying rubric stats for {course_code}: {str(e)}")
+            except Exception as e:
+                logging.error(f"Error counting submissions for {course_code}: {str(e)}")
+                
+            # If no criteria data found, populate with mock data
+            if not courses[course_code]['criteria_data']:
+                logging.info(f"No rubric criteria found for {course_code}, using mock data")
+                mock_criteria = {
+                    "Complexity Analysis": {"count": 15, "percentage": 30},
+                    "Algorithm Understanding": {"count": 10, "percentage": 20},
+                    "Code Quality": {"count": 8, "percentage": 16},
+                    "Problem Solving": {"count": 7, "percentage": 14},
+                    "Technical Precision": {"count": 5, "percentage": 10},
+                    "Completeness": {"count": 5, "percentage": 10}
+                }
+                courses[course_code]['criteria_data'] = mock_criteria
+        
+        # 3. Get rubrics with highest degree centrality
+        top_rubrics = []
+        if instructor_id:
+            try:
+                top_rubrics = get_rubrics_with_highest_degree(instructor_id)
+                logging.info(f"Found {len(top_rubrics)} top rubrics by degree centrality")
+            except Exception as e:
+                logging.error(f"Error getting top rubrics: {str(e)}")
+        
+        # 4. Find potential grading inconsistencies based on real submission data
+        inconsistencies = []
+        
+        if instructor_id:
+            try:
+                # Get inconsistencies from real data
+                inconsistencies = detect_grading_inconsistencies(instructor_id)
+                logging.info(f"Found {len(inconsistencies)} potential grading inconsistencies")
+                
+                # If none found, try the generic search
+                if not inconsistencies:
+                    course_codes = list(courses.keys())
+                    inconsistency_query = """
+                    FOR s1 IN submission
+                        FILTER s1.class_code IN @course_codes
+                        
+                        // Find other submissions for the same assignment
+                        FOR s2 IN submission
+                            FILTER s2.class_code == s1.class_code
+                            FILTER s2.assignment_id == s1.assignment_id
+                            FILTER s2._id != s1._id
+                            
+                            // Look for grade differences that are significant
+                            FILTER ABS(s1.grade - s2.grade) >= 10
+                            
+                            // Sort by grade difference so we get the most significant inconsistencies
+                            SORT ABS(s1.grade - s2.grade) DESC
+                            
+                            RETURN {
+                                question: s1.assignment_id,
+                                inconsistency: {
+                                    score_difference: ABS(s1.grade - s2.grade),
+                                    case1: {
+                                        score: s1.grade,
+                                        justification: s1.feedback || "No feedback provided"
+                                    },
+                                    case2: {
+                                        score: s2.grade,
+                                        justification: s2.feedback || "No feedback provided"
+                                    }
+                                }
+                            }
+                    """
+                    
+                    # Use DISTINCT to avoid duplicate inconsistencies
+                    inconsistency_results = list(db.aql.execute(inconsistency_query, bind_vars={'course_codes': course_codes}))
+                    
+                    # Filter out duplicates (same assignment pair but in reversed order)
+                    seen_pairs = set()
+                    filtered_inconsistencies = []
+                    
+                    for item in inconsistency_results:
+                        # Sort case scores so we consider them the same inconsistency regardless of order
+                        score1 = item['inconsistency']['case1']['score']
+                        score2 = item['inconsistency']['case2']['score']
+                        assignment = item['question']
+                        
+                        # Create a unique key for this pair
+                        pair_key = f"{assignment}_{min(score1, score2)}_{max(score1, score2)}"
+                        
+                        if pair_key not in seen_pairs:
+                            seen_pairs.add(pair_key)
+                            filtered_inconsistencies.append(item)
+                    
+                    # Take top 5 most significant inconsistencies
+                    inconsistencies = filtered_inconsistencies[:5]
+                    logging.info(f"Found {len(inconsistencies)} inconsistencies from generic search")
+            except Exception as e:
+                logging.error(f"Error finding grading inconsistencies: {str(e)}")
+        
+        # 5. Get mistake clusters by rubric
+        mistake_clusters = None
+        
+        if instructor_id:
+            try:
+                mistake_clusters = get_mistake_clusters_by_rubric(instructor_id)
+                if mistake_clusters['clusters']:
+                    logging.info(f"Found {len(mistake_clusters['clusters'])} rubric-based clusters with {mistake_clusters['stats']['total_mistakes']} total mistakes")
+                else:
+                    # Fallback to the old approach
+                    mistake_clusters = get_mistake_clusters_with_stats()
+                    logging.info(f"Using generic cluster approach with {len(mistake_clusters['clusters'])} clusters")
+            except Exception as e:
+                logging.error(f"Error generating mistake clusters: {str(e)}")
+        
+        return render(request, 'network_simulation/instructor_dashboard.html', {
+            'title': 'Instructor Dashboard',
+            'heatmap': courses,
+            'first_course': first_course,
+            'common_mistakes': top_rubrics,
+            'most_common_count': max(top_rubrics, key=lambda x: x.get('connections', 0))['connections'] if top_rubrics else 0,
+            'inconsistencies': inconsistencies,
+            'mistake_clusters': mistake_clusters
+        })
+    except Exception as e:
+        logging.error(f"Error in instructor dashboard: {str(e)}")
+        return render(request, 'network_simulation/instructor_dashboard.html', {
+            'title': 'Instructor Dashboard',
+            'error_message': f"Error loading analytics: {str(e)}"
+        })
+
+def student_detail(request, student_id=None):
+    """Student detail view with network analytics"""
+    if not student_id:
+        # If no student_id is provided and user is logged in as a student
+        if request.session.get('role') == 'student':
+            student_id = request.session.get('user_id')
+        else:
+            # Try to get a student from ArangoDB
+            try:
+                student_doc = list(db.collection('users').find({'role': 'student'}).limit(1))[0]
+                if student_doc:
+                    student_id = student_doc['_id']
+                else:
+                    # Fall back to Django model if available
+                    if MODELS_AVAILABLE and Student.objects.exists():
+                        student = Student.objects.first()
+                        student_id = student.student_id
+                    else:
+                        return render(request, 'network_simulation/student_detail.html', {
+                            'title': 'Student Detail',
+                            'error_message': 'No student ID provided and no default student available.'
+                        })
+            except Exception as e:
+                logging.error(f"Error finding default student: {str(e)}")
+                # Fall back to Django model if available
+                if MODELS_AVAILABLE and Student.objects.exists():
+                    student = Student.objects.first()
+                    student_id = student.student_id
+                else:
+                    return render(request, 'network_simulation/student_detail.html', {
+                        'title': 'Student Detail',
+                        'error_message': 'No student ID provided and no default student available.'
+                    })
+    
+    # Try to get student data from ArangoDB first
+    student_data = None
+    try:
+        student_doc = db.collection('users').find_one({'_id': student_id, 'role': 'student'})
+        if student_doc:
+            student_data = {
+                'id': student_id,
+                'name': student_doc.get('username', 'Unknown'),
+                'year': student_doc.get('year', 'N/A'),
+                'major': student_doc.get('major', 'N/A'),
+                'gpa': student_doc.get('gpa', 'N/A')
+            }
+    except Exception as e:
+        logging.error(f"Error fetching student from ArangoDB: {str(e)}")
+    
+    # Fall back to Django model if ArangoDB fails
+    if not student_data and MODELS_AVAILABLE:
+        try:
+            student = Student.objects.get(student_id=student_id)
+            student_data = {
+                'id': student.student_id,
+                'name': student.name,
+                'year': student.year,
+                'major': student.major,
+                'gpa': student.gpa
+            }
+        except Student.DoesNotExist:
+            pass
+    
+    if not student_data:
+        return render(request, 'network_simulation/student_detail.html', {
+            'title': 'Student Detail',
+            'error_message': f'Student with ID {student_id} not found.'
+        })
+    
+    # Get course enrollments from ArangoDB
+    courses = []
+    try:
+        enrollments = db.collection('enrollment').find({'student_id': student_id})
+        for enrollment in enrollments:
+            course_id = enrollment.get('course_id')
+            course_doc = db.collection('courses').find_one({'_id': course_id})
+            if course_doc:
+                courses.append({
+                    'id': course_id,
+                    'name': course_doc.get('class_title', 'Unknown Course'),
+                    'term': enrollment.get('term', 'N/A'),
+                    'year': enrollment.get('year', 'N/A'),
+                    'grade': enrollment.get('final_grade', 'N/A')
+                })
+    except Exception as e:
+        logging.error(f"Error fetching enrollments from ArangoDB: {str(e)}")
+        # Fall back to Django model if ArangoDB fails
+        if MODELS_AVAILABLE:
+            try:
+                student = Student.objects.get(student_id=student_id)
+                enrollments = student.enrollments.all() if hasattr(student, 'enrollments') else []
                 courses = [{
-                    'id': enroll.course.course_id,
-                    'name': enroll.course.name,
-                    'term': enroll.term,
-                    'year': enroll.year,
-                    'final_grade': enroll.final_grade or 0
-                } for enroll in enrollments]
-                
-                # Get assessments
-                assessments = Assessment.objects.filter(student=student_obj).order_by('-date')[:10]
-                assessment_list = [{
+                    'id': enrollment.course.course_id,
+                    'name': enrollment.course.name,
+                    'term': enrollment.term,
+                    'year': enrollment.year,
+                    'grade': enrollment.final_grade
+                } for enrollment in enrollments]
+            except Exception as inner_e:
+                logging.error(f"Error with Django model fallback: {str(inner_e)}")
+    
+    # Get assessments/submissions from ArangoDB
+    assessments = []
+    try:
+        submissions = db.collection('submission').find({'user_id': student_id})
+        for submission in submissions:
+            course_code = submission.get('class_code')
+            course_doc = db.collection('courses').find_one({'class_code': course_code})
+            assessments.append({
+                'id': submission.get('_id', 'Unknown'),
+                'course': course_doc.get('class_title', 'Unknown Course') if course_doc else course_code,
+                'type': 'Submission',
+                'date': submission.get('created_at', 'N/A'),
+                'score': submission.get('grade', 'N/A')
+            })
+    except Exception as e:
+        logging.error(f"Error fetching submissions from ArangoDB: {str(e)}")
+        # Fall back to Django model if ArangoDB fails
+        if MODELS_AVAILABLE:
+            try:
+                student = Student.objects.get(student_id=student_id)
+                student_assessments = student.assessments.all() if hasattr(student, 'assessments') else []
+                assessments = [{
+                    'id': assessment.assessment_id,
                     'course': assessment.course.name,
                     'type': assessment.type,
                     'date': assessment.date,
                     'score': assessment.score
-                } for assessment in assessments]
-                
-                # Get instructor average scores
-                instructor_avg_scores = []
-                for instructor in Instructor.objects.filter(assessments__student=student_obj).distinct():
-                    avg_score = Assessment.objects.filter(
-                        student=student_obj, 
-                        instructor=instructor
-                    ).aggregate(avg=models.Avg('score'))['avg'] or 0
-                    instructor_avg_scores.append({
-                        'id': instructor.instructor_id,
-                        'name': instructor.name,
-                        'avg_score': round(avg_score, 1)
-                    })
-                
-            except Exception as e:
-                # Fall back to dummy data if error occurs
-                logging.warning(f"Error fetching student data: {str(e)}")
-                raise Http404("Student not found")
-        else:
-            # Use dummy data if models are not available
-            student = {
-                'id': student_id,
-                'name': f'Student {student_id}',
-                'email': f'student{student_id}@example.com',
-                'year': random.randint(1, 4),
-                'major': random.choice(['Computer Science', 'Engineering', 'Mathematics', 'Physics']),
-                'gpa': round(random.uniform(2.5, 4.0), 2),
-                'courses': random.randint(3, 6),
-                'avg_grade': round(random.uniform(70, 95), 2)
-            }
-            
-            # Dummy courses
-            courses = []
-            for i in range(1, student['courses'] + 1):
-                courses.append({
-                    'id': f'CS{100+i}',
-                    'name': f'Course {i}',
-                    'term': random.choice([1, 2]),
-                    'year': 2023,
-                    'final_grade': round(random.uniform(60, 100), 1)
-                })
-            
-            # Dummy assessments
-            assessment_list = []
-            for i in range(1, 8):
-                assessment_list.append({
-                    'course': f'Course {random.randint(1, student["courses"])}',
-                    'type': random.choice(['Quiz', 'Exam', 'Project', 'Homework']),
-                    'date': f'2023-{random.randint(1, 12):02d}-{random.randint(1, 28):02d}',
-                    'score': round(random.uniform(60, 100), 1)
-                })
-            
-            # Dummy instructor scores
-            instructor_avg_scores = []
-            for i in range(1, 4):
-                instructor_avg_scores.append({
-                    'id': i,
-                    'name': f'Instructor {i}',
-                    'avg_score': round(random.uniform(70, 95), 1)
-                })
+                } for assessment in student_assessments]
+            except Exception as inner_e:
+                logging.error(f"Error with Django model fallback: {str(inner_e)}")
     
-        # Get counts for sidebar statistics
-        student_count = Student.objects.count() if MODELS_AVAILABLE else random.randint(50, 200)
-        instructor_count = Instructor.objects.count() if MODELS_AVAILABLE else random.randint(10, 30)
-        course_count = Course.objects.count() if MODELS_AVAILABLE else random.randint(20, 50)
-        assessment_count = Assessment.objects.count() if MODELS_AVAILABLE else random.randint(200, 500)
-        
-        return render(request, 'network_simulation/student_detail.html', {
-            'title': f'Student: {student["name"]}',
-            'student': student,
-            'courses': courses,
-            'assessments': assessment_list,
-            'instructor_avg_scores': instructor_avg_scores,
-            'student_count': student_count,
-            'instructor_count': instructor_count,
-            'course_count': course_count,
-            'assessment_count': assessment_count
-        })
-        
-    except Exception as e:
-        logging.error(f"Error in student_detail view: {str(e)}")
-        raise Http404("Student not found")
-
-def instructor_detail(request, instructor_id):
-    """Detail view for a specific instructor"""
-    try:
-        if MODELS_AVAILABLE:
-            # Attempt to fetch from database
+    # Get instructor connections from ArangoDB
+    instructors = []
+    instructor_set = set()
+    
+    if courses:
+        for course in courses:
             try:
-                instructor_obj = get_object_or_404(Instructor, pk=instructor_id)
-                instructor = {
-                    'id': instructor_id,
-                    'name': instructor_obj.name,
-                    'email': f'{instructor_obj.instructor_id.lower()}@example.com',
-                    'department': instructor_obj.department,
-                    'specialization': instructor_obj.specialization,
-                    'courses': instructor_obj.courses.count(),
-                    'students': Enrollment.objects.filter(course__instructors=instructor_obj).values('student').distinct().count()
-                }
-                
-                # Get courses
-                courses = []
-                for course in instructor_obj.courses.all():
-                    student_count = Enrollment.objects.filter(course=course).count()
-                    courses.append({
-                        'id': course.course_id,
-                        'name': course.name,
-                        'credits': course.credits,
-                        'student_count': student_count
-                    })
-                
-                # Get students with assessments by this instructor
-                students_data = []
-                students = Student.objects.filter(assessments__instructor=instructor_obj).distinct()
-                for student in students:
-                    assessments = Assessment.objects.filter(student=student, instructor=instructor_obj)
-                    avg_score = assessments.aggregate(avg=models.Avg('score'))['avg'] or 0
-                    assessment_count = assessments.count()
-                    students_data.append({
-                        'id': student.student_id,
-                        'name': student.name,
-                        'year': student.year,
-                        'gpa': student.gpa,
-                        'assessment_count': assessment_count,
-                        'avg_score': round(avg_score, 1)
-                    })
-                
-                # Get assessment type averages
-                type_avg_scores = []
-                assessment_types = Assessment.objects.filter(instructor=instructor_obj).values_list('type', flat=True).distinct()
-                for type_name in assessment_types:
-                    count = Assessment.objects.filter(instructor=instructor_obj, type=type_name).count()
-                    avg_score = Assessment.objects.filter(instructor=instructor_obj, type=type_name).aggregate(avg=models.Avg('score'))['avg'] or 0
-                    type_avg_scores.append({
-                        'type': type_name,
-                        'count': count,
-                        'avg_score': round(avg_score, 1)
-                    })
-                
-                # Get course average scores
-                course_avg_scores = []
-                for course in instructor_obj.courses.all():
-                    avg_score = Assessment.objects.filter(instructor=instructor_obj, course=course).aggregate(avg=models.Avg('score'))['avg'] or 0
-                    course_avg_scores.append({
-                        'id': course.course_id,
-                        'name': course.name,
-                        'avg_score': round(avg_score, 1)
-                    })
-                
+                course_doc = db.collection('courses').find_one({'_id': course['id']})
+                if course_doc and 'instructor_id' in course_doc:
+                    instructor_id = course_doc['instructor_id']
+                    if instructor_id not in instructor_set:
+                        instructor_set.add(instructor_id)
+                        instructor_doc = db.collection('users').find_one({'_id': instructor_id})
+                        if instructor_doc:
+                            instructors.append({
+                                'id': instructor_id,
+                                'name': instructor_doc.get('username', 'Unknown'),
+                                'department': instructor_doc.get('department', 'N/A')
+                            })
             except Exception as e:
-                # Fall back to dummy data if error occurs
-                logging.warning(f"Error fetching instructor data: {str(e)}")
-                raise Http404("Instructor not found")
-        else:
-            # Use dummy data if models are not available
-            instructor = {
-                'id': instructor_id,
-                'name': f'Instructor {instructor_id}',
-                'email': f'instructor{instructor_id}@example.com',
-                'department': random.choice(['Computer Science', 'Engineering', 'Mathematics', 'Physics']),
-                'specialization': random.choice(['Algorithms', 'Machine Learning', 'Databases', 'Networking']),
-                'courses': random.randint(2, 5),
-                'students': random.randint(30, 100)
-            }
-            
-            # Dummy courses
-            courses = []
-            for i in range(1, instructor['courses'] + 1):
-                courses.append({
-                    'id': f'CS{100+i}',
-                    'name': f'Course {i}',
-                    'credits': random.randint(1, 4),
-                    'student_count': random.randint(15, 40)
-                })
-            
-            # Dummy students
-            students_data = []
-            for i in range(1, 11):
-                students_data.append({
-                    'id': i,
-                    'name': f'Student {i}',
-                    'year': random.randint(1, 4),
-                    'gpa': round(random.uniform(2.5, 4.0), 2),
-                    'assessment_count': random.randint(3, 10),
-                    'avg_score': round(random.uniform(70, 95), 1)
-                })
-            
-            # Dummy assessment types
-            type_avg_scores = []
-            for type_name in ['Quiz', 'Exam', 'Project', 'Homework']:
-                type_avg_scores.append({
-                    'type': type_name,
-                    'count': random.randint(5, 20),
-                    'avg_score': round(random.uniform(70, 90), 1)
-                })
-            
-            # Dummy course scores
-            course_avg_scores = []
-            for i, course in enumerate(courses):
-                course_avg_scores.append({
-                    'id': course['id'],
-                    'name': course['name'],
-                    'avg_score': round(random.uniform(70, 90), 1)
-                })
+                logging.error(f"Error fetching instructor from ArangoDB: {str(e)}")
     
-        # Get counts for sidebar statistics
-        student_count = Student.objects.count() if MODELS_AVAILABLE else random.randint(50, 200)
-        instructor_count = Instructor.objects.count() if MODELS_AVAILABLE else random.randint(10, 30)
-        course_count = Course.objects.count() if MODELS_AVAILABLE else random.randint(20, 50)
-        assessment_count = Assessment.objects.count() if MODELS_AVAILABLE else random.randint(200, 500)
-        
-        return render(request, 'network_simulation/instructor_detail.html', {
-            'title': f'Instructor: {instructor["name"]}',
-            'instructor': instructor,
-            'courses': courses,
-            'students': students_data,
-            'type_avg_scores': type_avg_scores,
-            'course_avg_scores': course_avg_scores,
-            'student_count': student_count,
-            'instructor_count': instructor_count,
-            'course_count': course_count,
-            'assessment_count': assessment_count
-        })
-        
-    except Exception as e:
-        logging.error(f"Error in instructor_detail view: {str(e)}")
-        raise Http404("Instructor not found")
-
-def course_detail(request, course_id):
-    """Detail view for a specific course"""
-    try:
-        if MODELS_AVAILABLE:
-            # Attempt to fetch from database
-            try:
-                course_obj = get_object_or_404(Course, pk=course_id)
-                enrollment_count = Enrollment.objects.filter(course=course_obj).count()
-                assessment_count_course = Assessment.objects.filter(course=course_obj).count()
-                
-                course = {
-                    'id': course_id,
-                    'name': course_obj.name,
-                    'code': course_obj.course_id,
-                    'credits': course_obj.credits,
-                    'students': enrollment_count
-                }
-                
-                # Get instructors
-                instructors = []
-                for instructor in course_obj.instructors.all():
-                    assessment_count_instructor = Assessment.objects.filter(
-                        course=course_obj, 
-                        instructor=instructor
-                    ).count()
-                    instructors.append({
-                        'id': instructor.instructor_id,
-                        'name': instructor.name,
-                        'specialization': instructor.specialization,
-                        'assessment_count': assessment_count_instructor
-                    })
-                
-                # Get students enrolled in this course
-                students = []
-                enrollments = Enrollment.objects.filter(course=course_obj)
-                for enrollment in enrollments:
-                    student = enrollment.student
-                    students.append({
-                        'id': student.student_id,
-                        'name': student.name,
-                        'year': student.year,
-                        'gpa': student.gpa,
-                        'final_grade': enrollment.final_grade or 0
-                    })
-                
-                # Get assessment statistics
-                assessment_stats = []
-                assessment_types = Assessment.objects.filter(course=course_obj).values_list('type', flat=True).distinct()
-                for type_name in assessment_types:
-                    assessments = Assessment.objects.filter(course=course_obj, type=type_name)
-                    count = assessments.count()
-                    avg_score = assessments.aggregate(avg=models.Avg('score'))['avg'] or 0
-                    min_score = assessments.aggregate(min=models.Min('score'))['min'] or 0
-                    max_score = assessments.aggregate(max=models.Max('score'))['max'] or 0
-                    
-                    assessment_stats.append({
-                        'type': type_name,
-                        'count': count,
-                        'avg_score': round(avg_score, 1),
-                        'min_score': round(min_score, 1),
-                        'max_score': round(max_score, 1)
-                    })
-                
-                # Grade distribution
-                grade_distribution = {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'F': 0}
-                for enrollment in enrollments:
-                    if enrollment.final_grade:
-                        if enrollment.final_grade >= 90:
-                            grade_distribution['A'] += 1
-                        elif enrollment.final_grade >= 80:
-                            grade_distribution['B'] += 1
-                        elif enrollment.final_grade >= 70:
-                            grade_distribution['C'] += 1
-                        elif enrollment.final_grade >= 60:
-                            grade_distribution['D'] += 1
-                        else:
-                            grade_distribution['F'] += 1
-                
-            except Exception as e:
-                # Fall back to dummy data if error occurs
-                logging.warning(f"Error fetching course data: {str(e)}")
-                raise Http404("Course not found")
-        else:
-            # Use dummy data if models are not available
-            enrollment_count = random.randint(15, 40)
-            assessment_count_course = random.randint(30, 100)
-            
-            course = {
-                'id': course_id,
-                'name': f'Course {course_id}',
-                'code': f'CS{course_id}',
-                'credits': random.randint(1, 4),
-                'students': enrollment_count
-            }
-            
-            # Dummy instructors
-            instructors = []
-            for i in range(1, 3):
-                instructors.append({
-                    'id': i,
-                    'name': f'Instructor {i}',
-                    'specialization': random.choice(['Algorithms', 'Machine Learning', 'Databases', 'Networking']),
-                    'assessment_count': random.randint(10, 30)
-                })
-            
-            # Dummy students
-            students = []
-            for i in range(1, enrollment_count + 1):
-                students.append({
-                    'id': i,
-                    'name': f'Student {i}',
-                    'year': random.randint(1, 4),
-                    'gpa': round(random.uniform(2.5, 4.0), 2),
-                    'final_grade': round(random.uniform(60, 100), 1)
-                })
-            
-            # Dummy assessment stats
-            assessment_stats = []
-            for type_name in ['Quiz', 'Exam', 'Project', 'Homework']:
-                count = random.randint(3, 10)
-                avg_score = round(random.uniform(70, 90), 1)
-                min_score = round(max(avg_score - 20, 0), 1)
-                max_score = round(min(avg_score + 20, 100), 1)
-                
-                assessment_stats.append({
-                    'type': type_name,
-                    'count': count,
-                    'avg_score': avg_score,
-                    'min_score': min_score,
-                    'max_score': max_score
-                })
-            
-            # Dummy grade distribution
-            grade_distribution = {
-                'A': int(enrollment_count * 0.3),
-                'B': int(enrollment_count * 0.4),
-                'C': int(enrollment_count * 0.2),
-                'D': int(enrollment_count * 0.07),
-                'F': int(enrollment_count * 0.03)
-            }
-    
-        # Get counts for sidebar statistics
-        student_count = Student.objects.count() if MODELS_AVAILABLE else random.randint(50, 200)
-        instructor_count = Instructor.objects.count() if MODELS_AVAILABLE else random.randint(10, 30)
-        course_count = Course.objects.count() if MODELS_AVAILABLE else random.randint(20, 50)
-        assessment_count = Assessment.objects.count() if MODELS_AVAILABLE else random.randint(200, 500)
-        
-        return render(request, 'network_simulation/course_detail.html', {
-            'title': f'Course: {course["name"]}',
-            'course': course,
-            'instructors': instructors,
-            'students': students,
-            'assessment_stats': assessment_stats,
-            'grade_distribution': grade_distribution,
-            'enrollment_count': enrollment_count,
-            'assessment_count': assessment_count_course,
-            'student_count': student_count,
-            'instructor_count': instructor_count,
-            'course_count': course_count,
-            'assessment_count': assessment_count
-        })
-        
-    except Exception as e:
-        logging.error(f"Error in course_detail view: {str(e)}")
-        raise Http404("Course not found")
-
-# API endpoints for AJAX requests
-
-def api_course_network(request):
-    """API endpoint that returns course network data in JSON format"""
-    try:
-        # Generate sample course network data
-        nodes = []
-        links = []
-        
-        # Create 10 course nodes
-        for i in range(1, 11):
-            nodes.append({
-                'id': f'course_{i}',
-                'name': f'Course {i}',
-                'type': 'course',
-                'students': random.randint(15, 40)
-            })
-        
-        # Create connections between courses (prerequisites, related courses, etc.)
-        for i in range(1, 10):
-            # Each course connects to 1-3 other courses
-            for _ in range(random.randint(1, 3)):
-                target = random.randint(i+1, 10)
-                links.append({
-                    'source': f'course_{i}',
-                    'target': f'course_{target}',
-                    'value': random.randint(1, 5),  # Strength of relationship
-                    'type': random.choice(['prerequisite', 'related', 'sequential'])
-                })
-        
-        # Create a network visualization using NetworkX
-        G = nx.Graph()
-        
-        # Add nodes and edges to graph
-        for node in nodes:
-            G.add_node(node['id'], name=node['name'], students=node['students'])
-        
-        for link in links:
-            G.add_edge(link['source'], link['target'], weight=link['value'], type=link['type'])
-        
-        # Calculate network metrics
-        network_metrics = {
-            'node_count': G.number_of_nodes(),
-            'edge_count': G.number_of_edges(),
-            'density': nx.density(G),
-            'avg_degree_centrality': sum(dict(G.degree()).values()) / len(G),
-            'community_count': len(list(nx.connected_components(G)))
-        }
-        
-        # Generate mock course data for charts
-        course_enrollment = []
-        for node in nodes:
-            course_enrollment.append({
-                'name': node['name'],
-                'student_count': node['students']
-            })
-        
-        # Generate mock course grades
-        course_avg_grades = []
-        for node in nodes:
-            course_avg_grades.append({
-                'name': node['name'],
-                'avg_grade': round(random.uniform(70, 90), 1)
-            })
-        
-        # Generate mock course connections
-        course_connections = []
-        for link in links:
-            source_node = next(n for n in nodes if n['id'] == link['source'])
-            target_node = next(n for n in nodes if n['id'] == link['target'])
-            course_connections.append({
-                'course1_id': link['source'].split('_')[1],
-                'course1_name': source_node['name'],
-                'course2_id': link['target'].split('_')[1],
-                'course2_name': target_node['name'],
-                'shared_students': link['value']
-            })
-        
-        # Create a mock graph image for display
-        plt.figure(figsize=(10, 8))
-        pos = nx.spring_layout(G)
-        node_sizes = [nodes[i]['students']*5 for i in range(len(nodes))]
-        nx.draw(G, pos, with_labels=True, node_size=node_sizes, node_color='lightblue', 
-                font_size=8, edge_color='gray', width=[G[u][v]['weight']/2 for u,v in G.edges()])
-        
-        # Save plot to a base64 encoded image
-        buffer = io.BytesIO()
-        plt.savefig(buffer, format='png')
-        buffer.seek(0)
-        graph_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        plt.close()
-        
-        return JsonResponse({
-            'nodes': nodes, 
-            'links': links,
-            'network_graph': graph_image,
-            'network_metrics': network_metrics,
-            'course_enrollment': course_enrollment,
-            'course_avg_grades': course_avg_grades,
-            'course_connections': course_connections
-        })
-        
-    except Exception as e:
-        logging.error(f"Error in api_course_network: {str(e)}")
-        return JsonResponse({'error': 'Error generating course network data'}, status=500)
-
-def api_student_instructor_network(request):
-    """API endpoint that returns student-instructor network data in JSON format"""
-    try:
-        # Generate sample student-instructor network data
-        nodes = []
-        links = []
-        
-        # Create 5 instructor nodes
-        for i in range(1, 6):
-            nodes.append({
-                'id': f'instructor_{i}',
-                'name': f'Instructor {i}',
-                'type': 'instructor',
-                'courses': random.randint(1, 4)
-            })
-            
-        # Create 30 student nodes
-        for i in range(1, 31):
-            nodes.append({
-                'id': f'student_{i}',
-                'name': f'Student {i}',
-                'type': 'student',
-                'courses': random.randint(3, 6)
-            })
-        
-        # Create connections between students and instructors
-        for s in range(1, 31):
-            # Each student connects to 2-4 instructors
-            for _ in range(random.randint(2, 4)):
-                instructor = random.randint(1, 5)
-                links.append({
-                    'source': f'student_{s}',
-                    'target': f'instructor_{instructor}',
-                    'value': random.randint(1, 5),  # Strength of relationship
-                    'courses': random.randint(1, 3)  # Number of courses taken with this instructor
-                })
-        
-        # Create a network visualization
-        # Create sample network metrics
-        network_metrics = {
-            'node_count': len(nodes),
-            'edge_count': len(links),
-            'density': len(links) / (len(nodes) * (len(nodes) - 1) / 2),
-            'avg_degree_centrality': 2 * len(links) / len(nodes),
-            'community_count': random.randint(2, 5),
-            'largest_component_size': len(nodes),
-            'largest_component_diameter': random.randint(3, 6)
-        }
-        
-        # Create sample instructor data
-        top_instructors = []
-        instructor_avg_scores = []
-        for i in range(1, 6):
-            student_count = random.randint(10, 30)
-            avg_score = round(random.uniform(70, 95), 1)
-            
-            top_instructors.append({
-                'id': i,
-                'name': f'Instructor {i}',
-                'student_count': student_count
-            })
-            
-            instructor_avg_scores.append({
-                'id': i,
-                'name': f'Instructor {i}',
-                'avg_score': avg_score
-            })
-        
-        # Create sample student data
-        top_students = []
-        for i in range(1, 11):
-            top_students.append({
-                'id': i,
-                'name': f'Student {i}',
-                'instructor_count': random.randint(2, 5),
-                'gpa': round(random.uniform(2.5, 4.0), 2)
-            })
-        
-        # Create a mock graph image for display
-        # This is a placeholder - in a production app, we'd create a real network visualization
-        G = nx.Graph()
-        for node in nodes:
-            G.add_node(node['id'], type=node['type'])
-        for link in links:
-            G.add_edge(link['source'], link['target'], weight=link['value'])
-        
-        plt.figure(figsize=(10, 8))
-        pos = nx.spring_layout(G)
-        node_colors = ['blue' if 'instructor' in node else 'green' for node in G.nodes()]
-        nx.draw(G, pos, node_color=node_colors, with_labels=False, node_size=100, alpha=0.8, edgecolors='gray')
-        
-        # Save plot to a base64 encoded image
-        buffer = io.BytesIO()
-        plt.savefig(buffer, format='png')
-        buffer.seek(0)
-        graph_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        plt.close()
-        
-        return JsonResponse({
-            'nodes': nodes, 
-            'links': links,
-            'network_graph': graph_image, 
-            'network_metrics': network_metrics,
-            'top_instructors': top_instructors,
-            'instructor_avg_scores': instructor_avg_scores,
-            'top_students': top_students
-        })
-    except Exception as e:
-        logging.error(f"Error in api_student_instructor_network: {str(e)}")
-        return JsonResponse({'error': 'Error generating network data'}, status=500)
-
-def api_student_performance(request):
-    """API endpoint that returns student performance data in JSON format"""
-    # Generate sample student performance data
-    students = 20
-    courses = 5
-    
-    # Performance data over time
-    time_data = {
-        'labels': ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6', 'Week 7', 'Week 8'],
-        'datasets': []
-    }
-    
-    # Generate performance data for each course
-    for c in range(1, courses + 1):
-        time_data['datasets'].append({
-            'label': f'Course {c}',
-            'data': [round(random.uniform(60, 95), 1) for _ in range(8)],
-            'borderColor': f'rgba({random.randint(0, 255)}, {random.randint(0, 255)}, {random.randint(0, 255)}, 1)',
-            'fill': False
-        })
-    
-    # Distribution of grades
-    grade_distribution = {
-        'labels': ['A', 'B', 'C', 'D', 'F'],
-        'datasets': [{
-            'label': 'Grade Distribution',
-            'data': [
-                random.randint(5, 15),   # A
-                random.randint(15, 25),  # B
-                random.randint(20, 30),  # C
-                random.randint(5, 15),   # D
-                random.randint(1, 10)    # F
-            ],
-            'backgroundColor': [
-                'rgba(75, 192, 192, 0.6)',
-                'rgba(54, 162, 235, 0.6)',
-                'rgba(255, 206, 86, 0.6)',
-                'rgba(255, 159, 64, 0.6)',
-                'rgba(255, 99, 132, 0.6)'
-            ]
-        }]
-    }
-    
-    # Top performing students
-    top_students = []
-    for i in range(1, 11):
-        top_students.append({
-            'id': i,
-            'name': f'Student {i}',
-            'average': round(random.uniform(85, 99), 2),
-            'courses': random.randint(3, 5)
-        })
-    
-    # Sort by average score
-    top_students.sort(key=lambda x: x['average'], reverse=True)
-    
-    return JsonResponse({
-        'time_data': time_data,
-        'grade_distribution': grade_distribution,
-        'top_students': top_students
+    return render(request, 'network_simulation/student_detail.html', {
+        'title': f'Student: {student_data["name"]}',
+        'student': student_data,
+        'courses': courses,
+        'assessments': assessments,
+        'instructors': instructors
     })
 
-# New dashboard views for role-based analytics
-
-def student_analytics_dashboard(request):
-    """Student dashboard for viewing analytics about their own performance"""
-    # Get student user ID - this assumes the user ID in the session is valid
-    student_id = request.session.get('user_id')
-    
-    if not student_id:
-        return redirect('/')
-    
-    # Check if user is a student
-    users = db.collection('users')
-    user = users.get(student_id)
-    
-    if not user or user.get('role') != 'student':
-        return redirect('/')
-    
-    # Get student's mistake history
-    mistakes = get_student_mistakes(student_id)
-    
-    # Get student's weakest areas
-    weak_areas = get_student_weakest_areas(student_id)
-    
-    # Get recommended sections
-    recommended_sections = get_section_recommendations(student_id)
-    
-    context = {
-        'student_id': student_id,
-        'student_name': user.get('username', 'Student'),
-        'mistakes': mistakes,
-        'weak_areas': weak_areas,
-        'recommended_sections': recommended_sections
-    }
-    
-    return render(request, 'network_simulation/student_dashboard.html', context)
-
-def instructor_analytics_dashboard(request):
-    """Instructor dashboard for viewing analytics about student performance"""
-    # Get instructor user ID
-    instructor_id = request.session.get('user_id')
-    
+def instructor_detail(request, instructor_id=None):
+    """Instructor detail view with network analytics"""
     if not instructor_id:
-        return redirect('/')
+        # If no instructor_id is provided and user is logged in as an instructor
+        if request.session.get('role') == 'instructor':
+            instructor_id = request.session.get('user_id')
+        else:
+            # Try to get an instructor from ArangoDB
+            try:
+                instructor_doc = list(db.collection('users').find({'role': 'instructor'}).limit(1))[0]
+                if instructor_doc:
+                    instructor_id = instructor_doc['_id']
+                else:
+                    # Fall back to Django model if available
+                    if MODELS_AVAILABLE and Instructor.objects.exists():
+                        instructor = Instructor.objects.first()
+                        instructor_id = instructor.instructor_id
+                    else:
+                        return render(request, 'network_simulation/instructor_detail.html', {
+                            'title': 'Instructor Detail',
+                            'error_message': 'No instructor ID provided and no default instructor available.'
+                        })
+            except Exception as e:
+                logging.error(f"Error finding default instructor: {str(e)}")
+                # Fall back to Django model if available
+                if MODELS_AVAILABLE and Instructor.objects.exists():
+                    instructor = Instructor.objects.first()
+                    instructor_id = instructor.instructor_id
+                else:
+                    return render(request, 'network_simulation/instructor_detail.html', {
+                        'title': 'Instructor Detail',
+                        'error_message': 'No instructor ID provided and no default instructor available.'
+                    })
     
-    # Check if user is an instructor
-    users = db.collection('users')
-    user = users.get(instructor_id)
+    # Try to get instructor data from ArangoDB first
+    instructor_data = None
+    try:
+        instructor_doc = db.collection('users').find_one({'_id': instructor_id, 'role': 'instructor'})
+        if instructor_doc:
+            instructor_data = {
+                'id': instructor_id,
+                'name': instructor_doc.get('username', 'Unknown'),
+                'department': instructor_doc.get('department', 'N/A'),
+                'specialization': instructor_doc.get('specialization', 'N/A')
+            }
+    except Exception as e:
+        logging.error(f"Error fetching instructor from ArangoDB: {str(e)}")
     
-    if not user or user.get('role') != 'instructor':
-        return redirect('/')
+    # Fall back to Django model if ArangoDB fails
+    if not instructor_data and MODELS_AVAILABLE:
+        try:
+            instructor = Instructor.objects.get(instructor_id=instructor_id)
+            instructor_data = {
+                'id': instructor.instructor_id,
+                'name': instructor.name,
+                'department': instructor.department,
+                'specialization': instructor.specialization
+            }
+        except Instructor.DoesNotExist:
+            pass
     
-    # Get mistake heatmap data
-    heatmap = get_instructor_mistake_heatmap(instructor_id)
+    if not instructor_data:
+        return render(request, 'network_simulation/instructor_detail.html', {
+            'title': 'Instructor Detail',
+            'error_message': f'Instructor with ID {instructor_id} not found.'
+        })
     
-    # Get top common mistakes
-    common_mistakes = get_top_common_mistakes(instructor_id)
-    most_common_count = common_mistakes[0]['count'] if common_mistakes else 0
+    # Get courses taught from ArangoDB
+    courses = []
+    try:
+        course_docs = db.collection('courses').find({'instructor_id': instructor_id})
+        for course in course_docs:
+            student_count = db.collection('enrollment').find({'course_id': course['_id']}).count()
+            courses.append({
+                'id': course['_id'],
+                'name': course.get('class_title', 'Unknown Course'),
+                'credits': course.get('credits', 'N/A'),
+                'student_count': student_count
+            })
+    except Exception as e:
+        logging.error(f"Error fetching courses from ArangoDB: {str(e)}")
+        # Fall back to Django model if ArangoDB fails
+        if MODELS_AVAILABLE:
+            try:
+                instructor = Instructor.objects.get(instructor_id=instructor_id)
+                instructor_courses = instructor.courses.all() if hasattr(instructor, 'courses') else []
+                courses = [{
+                    'id': course.course_id,
+                    'name': course.name,
+                    'credits': course.credits,
+                    'student_count': course.enrollments.count()
+                } for course in instructor_courses]
+            except Exception as inner_e:
+                logging.error(f"Error with Django model fallback: {str(inner_e)}")
     
-    # Get potential grading inconsistencies
-    inconsistencies = detect_grading_inconsistencies(instructor_id)
+    # Get students from ArangoDB
+    students = []
+    student_set = set()
     
-    # Get mistake clusters
-    mistake_clusters = get_mistake_clusters_with_stats()
+    for course in courses:
+        try:
+            enrollments = db.collection('enrollment').find({'course_id': course['id']})
+            for enrollment in enrollments:
+                student_id = enrollment.get('student_id')
+                if student_id not in student_set:
+                    student_set.add(student_id)
+                    student_doc = db.collection('users').find_one({'_id': student_id})
+                    if student_doc:
+                        students.append({
+                            'id': student_id,
+                            'name': student_doc.get('username', 'Unknown'),
+                            'year': student_doc.get('year', 'N/A'),
+                            'major': student_doc.get('major', 'N/A'),
+                            'courses': [{
+                                'id': course['id'],
+                                'name': course['name'],
+                                'grade': enrollment.get('final_grade', 'N/A')
+                            }]
+                        })
+        except Exception as e:
+            logging.error(f"Error fetching students from ArangoDB: {str(e)}")
     
-    context = {
-        'instructor_id': instructor_id,
-        'instructor_name': user.get('username', 'Instructor'),
-        'heatmap': heatmap,
-        'common_mistakes': common_mistakes,
-        'most_common_count': most_common_count,
-        'inconsistencies': inconsistencies,
-        'mistake_clusters': mistake_clusters
+    # Calculate grade statistics from ArangoDB data
+    grade_stats = {
+        'average': 0,
+        'median': 0,
+        'distribution': {
+            'A': 0,
+            'B': 0, 
+            'C': 0,
+            'D': 0,
+            'F': 0
+        }
     }
     
-    return render(request, 'network_simulation/instructor_dashboard.html', context)
-
-def api_section_detail(request, section_id):
-    """API endpoint to get a section's details"""
     try:
-        sections = db.collection('sections')
-        section = sections.get(section_id)
+        # Try to calculate from ArangoDB
+        submissions = []
+        for course in courses:
+            course_submissions = db.collection('submission').find({'class_code': course['id']})
+            submissions.extend(list(course_submissions))
         
-        if not section:
-            return JsonResponse({'error': 'Section not found'}, status=404)
-        
-        return JsonResponse({
-            'id': section['_id'],
-            'title': section.get('title', 'No Title'),
-            'class_code': section.get('class_code', ''),
-            'content': section.get('content', 'No content available')
+        if submissions:
+            grades = [sub.get('grade', 0) for sub in submissions if sub.get('grade') is not None]
+            if grades:
+                grade_stats['average'] = sum(grades) / len(grades)
+                grades.sort()
+                mid = len(grades) // 2
+                grade_stats['median'] = grades[mid] if len(grades) % 2 else (grades[mid-1] + grades[mid]) / 2
+                
+                # Calculate grade distribution
+                for grade in grades:
+                    if grade >= 90:
+                        grade_stats['distribution']['A'] += 1
+                    elif grade >= 80:
+                        grade_stats['distribution']['B'] += 1
+                    elif grade >= 70:
+                        grade_stats['distribution']['C'] += 1
+                    elif grade >= 60:
+                        grade_stats['distribution']['D'] += 1
+                    else:
+                        grade_stats['distribution']['F'] += 1
+    except Exception as e:
+        logging.error(f"Error calculating grade stats from ArangoDB: {str(e)}")
+    
+    return render(request, 'network_simulation/instructor_detail.html', {
+        'title': f'Instructor: {instructor_data["name"]}',
+        'instructor': instructor_data,
+        'courses': courses,
+        'students': students,
+        'grade_stats': grade_stats
+    })
+
+def course_detail(request, course_id=None):
+    """Course detail view with network analytics"""
+    if not course_id:
+        # Try to get a course from ArangoDB
+        try:
+            course_doc = list(db.collection('courses').find({}).limit(1))[0]
+            if course_doc:
+                course_id = course_doc['_id']
+            else:
+                # Fall back to Django model if available
+                if MODELS_AVAILABLE and Course.objects.exists():
+                    course = Course.objects.first()
+                    course_id = course.course_id
+                else:
+                    return render(request, 'network_simulation/course_detail.html', {
+                        'title': 'Course Detail',
+                        'error_message': 'No course ID provided and no default course available.'
+                    })
+        except Exception as e:
+            logging.error(f"Error finding default course: {str(e)}")
+            # Fall back to Django model if available
+            if MODELS_AVAILABLE and Course.objects.exists():
+                course = Course.objects.first()
+                course_id = course.course_id
+            else:
+                return render(request, 'network_simulation/course_detail.html', {
+                    'title': 'Course Detail',
+                    'error_message': 'No course ID provided and no default course available.'
+                })
+    
+    # Try to get course data from ArangoDB first
+    course_data = None
+    course_doc = None
+    try:
+        course_doc = db.collection('courses').find_one({'_id': course_id})
+        if course_doc:
+            course_data = {
+                'id': course_id,
+                'name': course_doc.get('class_title', 'Unknown Course'),
+                'credits': course_doc.get('credits', 'N/A')
+            }
+    except Exception as e:
+        logging.error(f"Error fetching course from ArangoDB: {str(e)}")
+    
+    # Fall back to Django model if ArangoDB fails
+    if not course_data and MODELS_AVAILABLE:
+        try:
+            course = Course.objects.get(course_id=course_id)
+            course_data = {
+                'id': course.course_id,
+                'name': course.name,
+                'credits': course.credits
+            }
+        except Course.DoesNotExist:
+            pass
+    
+    if not course_data:
+        return render(request, 'network_simulation/course_detail.html', {
+            'title': 'Course Detail',
+            'error_message': f'Course with ID {course_id} not found.'
         })
-    except Exception as e:
-        logging.error(f"Error getting section details: {e}")
-        return JsonResponse({'error': str(e)}, status=500)
-
-def api_mistake_clusters(request):
-    """API endpoint to get mistake clusters for visualization"""
+    
+    # Get instructors from ArangoDB
+    instructors = []
     try:
-        clusters = get_mistake_clusters_with_stats()
-        return JsonResponse(clusters)
+        if course_doc and 'instructor_id' in course_doc:
+            instructor_id = course_doc['instructor_id']
+            instructor_doc = db.collection('users').find_one({'_id': instructor_id})
+            if instructor_doc:
+                instructors.append({
+                    'id': instructor_id,
+                    'name': instructor_doc.get('username', 'Unknown'),
+                    'department': instructor_doc.get('department', 'N/A'),
+                    'specialization': instructor_doc.get('specialization', 'N/A')
+                })
     except Exception as e:
-        logging.error(f"Error getting mistake clusters: {e}")
-        return JsonResponse({'error': str(e)}, status=500)
-
-def api_student_mistakes(request, student_id):
-    """API endpoint to get a student's mistakes"""
+        logging.error(f"Error fetching instructor from ArangoDB: {str(e)}")
+    
+    # Get students enrolled from ArangoDB
+    students = []
     try:
-        # Check if user has permission to view this student's mistakes
-        current_user_id = request.session.get('user_id')
-        users = db.collection('users')
-        user = users.get(current_user_id)
-        
-        # Only allow instructors or the student themselves to view their mistakes
-        if not user or (user.get('role') != 'instructor' and str(current_user_id) != str(student_id)):
-            return JsonResponse({'error': 'Unauthorized'}, status=401)
-        
-        mistakes = get_student_mistakes(student_id)
-        return JsonResponse({
-            'student_id': student_id,
-            'mistakes': mistakes
-        })
+        enrollments = db.collection('enrollment').find({'course_id': course_id})
+        for enrollment in enrollments:
+            student_id = enrollment.get('student_id')
+            student_doc = db.collection('users').find_one({'_id': student_id})
+            if student_doc:
+                students.append({
+                    'id': student_id,
+                    'name': student_doc.get('username', 'Unknown'),
+                    'year': student_doc.get('year', 'N/A'),
+                    'grade': enrollment.get('final_grade', 'N/A')
+                })
     except Exception as e:
-        logging.error(f"Error getting student mistakes: {e}")
-        return JsonResponse({'error': str(e)}, status=500)
-
-def api_instructor_mistake_heatmap(request, instructor_id):
-    """API endpoint to get instructor mistake heatmap data"""
+        logging.error(f"Error fetching enrollments from ArangoDB: {str(e)}")
+    
+    # Get assessments/submissions for this course from ArangoDB
+    assessments = []
     try:
-        # Check if user has permission to view this instructor's heatmap
-        current_user_id = request.session.get('user_id')
-        users = db.collection('users')
-        user = users.get(current_user_id)
-        
-        # Only allow instructors to view their own heatmap
-        if not user or user.get('role') != 'instructor' or str(current_user_id) != str(instructor_id):
-            return JsonResponse({'error': 'Unauthorized'}, status=401)
-        
-        heatmap = get_instructor_mistake_heatmap(instructor_id)
-        return JsonResponse({
-            'instructor_id': instructor_id,
-            'heatmap': heatmap
-        })
+        submissions = db.collection('submission').find({'class_code': course_id})
+        for submission in submissions:
+            student_id = submission.get('user_id')
+            student_doc = db.collection('users').find_one({'_id': student_id})
+            assessments.append({
+                'id': submission.get('_id', 'Unknown'),
+                'student': student_doc.get('username', 'Unknown') if student_doc else 'Unknown Student',
+                'type': 'Submission',
+                'date': submission.get('created_at', 'N/A'),
+                'score': submission.get('grade', 'N/A')
+            })
     except Exception as e:
-        logging.error(f"Error getting instructor mistake heatmap: {e}")
-        return JsonResponse({'error': str(e)}, status=500)
+        logging.error(f"Error fetching submissions from ArangoDB: {str(e)}")
+    
+    # Find related courses (courses that share students with this one) from ArangoDB
+    related_courses = []
+    student_ids = [s['id'] for s in students]
+    
+    if student_ids:
+        try:
+            for student_id in student_ids:
+                student_enrollments = db.collection('enrollment').find({'student_id': student_id})
+                for enrollment in student_enrollments:
+                    rel_course_id = enrollment.get('course_id')
+                    if rel_course_id != course_id:
+                        # Check if we already have this course in our list
+                        existing = next((c for c in related_courses if c['id'] == rel_course_id), None)
+                        if existing:
+                            existing['shared_students'] += 1
+                        else:
+                            rel_course_doc = db.collection('courses').find_one({'_id': rel_course_id})
+                            if rel_course_doc:
+                                related_courses.append({
+                                    'id': rel_course_id,
+                                    'name': rel_course_doc.get('class_title', 'Unknown Course'),
+                                    'shared_students': 1
+                                })
+            
+            # Sort by number of shared students
+            related_courses.sort(key=lambda x: x['shared_students'], reverse=True)
+        except Exception as e:
+            logging.error(f"Error finding related courses from ArangoDB: {str(e)}")
+    
+    # Calculate grade statistics from ArangoDB data
+    grade_stats = {
+        'average': 'N/A',
+        'median': 'N/A',
+        'distribution': {
+            'A': 0,
+            'B': 0, 
+            'C': 0,
+            'D': 0,
+            'F': 0
+        }
+    }
+    
+    grades = [s['grade'] for s in students if s['grade'] not in ('N/A', None)]
+    try:
+        if grades and all(isinstance(g, (int, float)) for g in grades):
+            grade_stats['average'] = round(sum(grades) / len(grades), 1)
+            grades.sort()
+            mid = len(grades) // 2
+            grade_stats['median'] = grades[mid] if len(grades) % 2 else round((grades[mid-1] + grades[mid]) / 2, 1)
+            
+            # Calculate grade distribution
+            for grade in grades:
+                if grade >= 90:
+                    grade_stats['distribution']['A'] += 1
+                elif grade >= 80:
+                    grade_stats['distribution']['B'] += 1
+                elif grade >= 70:
+                    grade_stats['distribution']['C'] += 1
+                elif grade >= 60:
+                    grade_stats['distribution']['D'] += 1
+                else:
+                    grade_stats['distribution']['F'] += 1
+    except Exception as e:
+        logging.error(f"Error calculating grade statistics: {str(e)}")
+    
+    return render(request, 'network_simulation/course_detail.html', {
+        'title': f'Course: {course_data["name"]}',
+        'course': course_data,
+        'instructors': instructors,
+        'students': students,
+        'assessments': assessments,
+        'related_courses': related_courses,
+        'grade_stats': grade_stats
+    })

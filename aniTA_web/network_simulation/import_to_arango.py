@@ -125,7 +125,8 @@ def import_network_to_arango(json_file, csv_dir=None):
                     'instructor_id': instructor_id,
                     'department': instructor_data['department'],
                     'specialization': instructor_data['specialization'],
-                    'is_simulated': True  # Flag to identify simulated users
+                    'is_simulated': True,  # Flag to identify simulated users
+                    'simulated_courses': []  # Track simulated courses taught by this instructor
                 })
                 
                 instructors_collection.update(user)
@@ -161,7 +162,14 @@ def import_network_to_arango(json_file, csv_dir=None):
             }
             
             # Insert course
-            courses_collection.insert(course_doc)
+            course_id = courses_collection.insert(course_doc)["_id"]
+            
+            # Add this course to the instructor's simulated_courses list
+            if primary_instructor_id:
+                instructor = instructors_collection.get(primary_instructor_id)
+                if instructor and 'simulated_courses' in instructor:
+                    instructor['simulated_courses'].append(course_id)
+                    instructors_collection.update(instructor)
         
         # Process enrollments by adding courses to student user documents
         for enrollment_data in network_data['enrollments']:
