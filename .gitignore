@@ -2,3 +2,4 @@
 **/__pycache__/
 db.sqlite3
 aniTA_web/gcp-deploy/deploy.sh
+aniTA_web/.env
