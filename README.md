@@ -12,8 +12,8 @@ A Django-based dashboard for visualizing and analyzing educational networks amon
 
 ## Screenshot
 
-[student dashboard](student_dashboard.png)
-[instructor dashboard](instructor_dashboard.png)
+![student dashboard](student_dashboard.png)
+![instructor dashboard](instructor_dashboard.png)
 
 ## Installation
 
