@@ -10,6 +10,11 @@ A Django-based dashboard for visualizing and analyzing educational networks amon
 - **Detailed Profiles**: View comprehensive profiles for students, instructors, and courses
 - **Performance Analytics**: Analyze academic performance across various dimensions
 
+## Screenshot
+
+[student dashboard](student_dashboard.png)
+[instructor dashboard](instructor_dashboard.png)
+
 ## Installation
 
 1. **Clone the repository**:
